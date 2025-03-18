@@ -1,0 +1,16 @@
+graph LR
+    A[JSON/CBOR Input] --> B[Parse to VMap]
+    B --> C{Extract Values}
+    C -->|Success| D[Typed Values]
+    C -->|Failure| E[Error with Details]
+    D --> F[Application Logic]
+    
+    subgraph "VMap Processing"
+        B
+        C
+    end
+    
+    style B fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#bbf,stroke:#333,stroke-width:2px
+    style D fill:#9f9,stroke:#333,stroke-width:2px
+    style E fill:#f99,stroke:#333,stroke-width:2px 
