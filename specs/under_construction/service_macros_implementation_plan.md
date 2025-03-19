@@ -161,124 +161,18 @@ To achieve the target API, we need to implement or modify the following componen
 - Test Node API with various parameter patterns
 - Validate event subscription and publishing
 - Ensure example file works end-to-end
+- Use standardized logging functions (log_callback_execution, log_published_event) for consistent event tracking
 
 ## Specific Implementation Details
 
 ### Service Macro Code Generation
-```rust
-// The service macro will generate code like this
-impl AbstractService for DataProcessorService {
-    async fn handle_request(&self, request: ServiceRequest) -> Result<ServiceResponse> {
-        match request.operation.as_str() {
-            "transform" => {
-                // Extract parameters and call the actual method
-                let data = extract_parameter::<String>(&request.params, "data")?;
-                let result = self.transform(&request.context, &data).await?;
-                Ok(ServiceResponse::success(result))
-            },
-            // Other operations...
-            _ => Err(anyhow!("Unknown operation"))
-        }
-    }
-    
-    // Other method implementations...
-}
 ```
-
-### Action Registration Approach
-```rust
-// The action macro will add operations to the handle_request match
-#[action(name = "transform")]
-async fn transform(&self, context: &RequestContext, data: &str) -> Result<String> {
-    // Original method implementation
-}
-
-// Will generate something like:
-const _: () = {
-    extern crate std;
-    
-    #[doc(hidden)]
-    #[allow(non_snake_case)]
-    fn __register_transform() {
-        ACTION_HANDLERS.with(|handlers| {
-            handlers.borrow_mut().insert("transform", |this, ctx, params| {
-                Box::pin(async move {
-                    // Parameter extraction
-                    let data = extract_param::<String>(&params, "data")?;
-                    
-                    // Call actual method and convert result
-                    let result = this.transform(ctx, &data).await?;
-                    Ok(ServiceResponse::success(result))
-                })
-            });
-        });
-    }
-}
-```
-
-### Subscription Registration
-```rust
-// The subscribe macro will register with the Node's event system
-#[subscribe(topic = "text_events")]
-async fn handle_text_events(&mut self, payload: ValueType) -> Result<()> {
-    // Original handler implementation
-}
-
-// Will generate something like:
-const _: () = {
-    extern crate std;
-    
-    #[doc(hidden)]
-    #[allow(non_snake_case)]
-    fn __register_handle_text_events(service: &impl AbstractService, context: &RequestContext) {
-        let service_clone = service.clone();
-        
-        tokio::spawn(async move {
-            let topic = format!("{}/{}", service.path(), "text_events");
-            
-            context.subscribe_to_topic(&topic, move |payload| {
-                let mut service_instance = service_clone.clone();
-                
-                Box::pin(async move {
-                    service_instance.handle_text_events(payload).await?;
-                    Ok(())
-                })
-            });
-        });
-    }
-}
-```
-
 ## Testing Strategy
 
 1. Unit Tests for Each Macro
    - Test service macro with different attribute combinations
    - Test action macro with various parameter patterns
    - Test subscribe macro with different topic formats
+   - Use standardized logging functions (log_callback_execution, log_published_event) for consistent event tracking
 
 2. Integration Tests for Node API
-   - Test service registration and operation execution
-   - Test direct value and mapped parameter passing
-   - Test event subscription and publishing
-
-3. Example File Validation
-   - Ensure the entire example file compiles and runs correctly
-   - Validate all operations work as expected
-
-## Success Criteria
-
-1. All macros generate correct code for Node integration
-2. The `node.request()` method handles both direct values and vmap parameters
-3. Event subscription and publishing work through the Node
-4. All tests pass and example file runs as expected
-5. Code follows guidelines in `guidelines.md`
-6. No warnings or unused code
-
-## Timeline
-
-1. Phase 1: Core Macro Development (3 days)
-2. Phase 2: Node API Integration (3 days)
-3. Phase 3: RequestContext Implementation (2 days)
-4. Phase 4: Testing and Integration (2 days)
-
-Total estimated timeline: 10 working days. 

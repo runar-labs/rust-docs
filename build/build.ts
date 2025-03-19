@@ -3,15 +3,17 @@ import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 
-// Simplified: just use public directory
-const PUBLIC_DIR = "./public";
+// Update paths to use website directory
+const WEBSITE_DIR = "../website";
 const ROOT_DIR = "./";
 const SRC_DIR = "./src";
 
-// Files from root that should be copied to public
+// Files from root that should be copied to website
 const ROOT_FILES_TO_COPY = [
   "favicon.svg",
-  "index.html"
+  "index.html",
+  ".nojekyll",
+  "CNAME"
 ];
 
 async function ensureDirectory(dir: string) {
@@ -21,16 +23,16 @@ async function ensureDirectory(dir: string) {
 }
 
 async function copyRootFiles() {
-  console.log("Copying files from root to public...");
+  console.log("Copying files from root to website...");
   for (const file of ROOT_FILES_TO_COPY) {
     const rootSource = join(ROOT_DIR, file);
-    const dest = join(PUBLIC_DIR, file);
+    const dest = join(WEBSITE_DIR, file);
     
     if (existsSync(rootSource) && !existsSync(dest)) {
       await copyFile(rootSource, dest);
       console.log(`Copied ${rootSource} to ${dest}`);
     } else {
-      console.log(`File ${file} already exists in public or not found in root`);
+      console.log(`File ${file} already exists in website or not found in root`);
     }
   }
 }
@@ -363,15 +365,15 @@ async function createJsFiles() {
   `;
   
   // Create src directory in public if it doesn't exist
-  await ensureDirectory(join(PUBLIC_DIR, "src"));
+  await ensureDirectory(join(WEBSITE_DIR, "src"));
   
   // Write bundle.js to public/src directory
-  const bundlePath = join(PUBLIC_DIR, "src", "bundle.js");
+  const bundlePath = join(WEBSITE_DIR, "src", "bundle.js");
   await Bun.write(bundlePath, bundleJs);
   console.log(`Created ${bundlePath}`);
   
   // Write main.js to public/src directory
-  const mainPath = join(PUBLIC_DIR, "src", "main.js");
+  const mainPath = join(WEBSITE_DIR, "src", "main.js");
   await Bun.write(mainPath, mainJs);
   console.log(`Created ${mainPath}`);
 }
@@ -380,7 +382,7 @@ async function ensureAssetDirectories() {
   console.log("Ensuring asset directories exist...");
   
   // Create assets/css directory if it doesn't exist
-  const cssDir = join(PUBLIC_DIR, "assets", "css");
+  const cssDir = join(WEBSITE_DIR, "assets", "css");
   await ensureDirectory(cssDir);
   
   // Check if prettydocs.css exists, if not create it
@@ -582,7 +584,7 @@ async function ensureAssetDirectories() {
 async function updateHtmlReferences() {
   console.log("Checking HTML references...");
   
-  const htmlPath = join(PUBLIC_DIR, "index.html");
+  const htmlPath = join(WEBSITE_DIR, "index.html");
   if (!existsSync(htmlPath)) {
     console.log(`HTML file not found: ${htmlPath}`);
     return;
@@ -629,7 +631,7 @@ async function ensureContentDirectory() {
   console.log("Ensuring content directory exists...");
   
   // Create content directory if it doesn't exist
-  const contentDir = join(PUBLIC_DIR, "content");
+  const contentDir = join(WEBSITE_DIR, "content");
   await ensureDirectory(contentDir);
   
   return contentDir;
@@ -659,7 +661,7 @@ async function processMdFiles() {
 async function ensureIndexHtml() {
   console.log("Checking for index.html...");
   
-  const publicIndexPath = join(PUBLIC_DIR, "index.html");
+  const publicIndexPath = join(WEBSITE_DIR, "index.html");
   const rootIndexPath = join(ROOT_DIR, "index.html");
   
   if (!existsSync(publicIndexPath) && existsSync(rootIndexPath)) {
@@ -965,7 +967,7 @@ async function build() {
   console.log("Starting build process...");
   
   // Ensure public directory exists
-  await ensureDirectory(PUBLIC_DIR);
+  await ensureDirectory(WEBSITE_DIR);
   
   // Copy necessary files from root to public
   await copyRootFiles();

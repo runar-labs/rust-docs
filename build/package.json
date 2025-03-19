@@ -1,7 +1,7 @@
 {
-  "name": "kagi-docs",
+  "name": "runar-docs",
   "version": "1.0.0",
-  "description": "Kagi documentation site based on PrettyDocs theme",
+  "description": "Runar documentation site based on PrettyDocs theme",
   "type": "module",
   "scripts": {
     "dev": "bun run --watch server.ts",
@@ -11,12 +11,12 @@
     "md": "bun run md-processor.ts"
   },
   "keywords": [
-    "kagi",
+    "runar",
     "documentation",
     "static-site",
     "prettydocs"
   ],
-  "author": "Kagi Team",
+  "author": "Runar Team",
   "license": "MIT",
   "dependencies": {
     "bootstrap": "^5.3.2",
@@ -27,14 +27,15 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "@tsconfig/svelte": "^5.0.0",
-    "@types/bun": "latest",
+    "@types/bun": "^1.2.5",
     "@types/marked": "^6.0.0",
+    "@types/node": "^22.13.10",
+    "postcss": "^8.4.29",
+    "sass": "^1.66.1",
     "svelte": "^4.2.0",
     "svelte-check": "^3.5.0",
     "tslib": "^2.6.1",
     "typescript": "^5.1.6",
-    "vite": "^5.0.0",
-    "postcss": "^8.4.29",
-    "sass": "^1.66.1"
+    "vite": "^5.0.0"
   }
 }

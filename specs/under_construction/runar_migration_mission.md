@@ -47,6 +47,7 @@ We have also rebranded from "Kagi" to "Runar". We are now the Runar team, and ou
 - [x] Update documentation references from "kagi" to "runar"
 - [x] Update README files and other project documentation
 - [x] Ensure all references to the project in comments are updated
+- [x] Standardize function names across all crates (log_callback -> log_callback_execution, log_event_published -> log_published_event)
 - [ ] Verify proper references to implementations (rust-runar-node, go-runar-node, ts-runar-node)
 
 ## 3. Macro Analysis and Reorganization
@@ -62,14 +63,26 @@ We have also rebranded from "Kagi" to "Runar". We are now the Runar team, and ou
 
 ## 4. Rust-docs Reorganization
 
-- [ ] Plan structure for GitHub Pages compatible documentation
-- [ ] Create a clear separation between source docs and built docs
-- [ ] Set up a build process for generating static website from markdown
-- [ ] Organize specs, public docs, and website builder
-- [ ] Create a GitHub Actions workflow for automatic docs deployment
+- [x] Plan structure for GitHub Pages compatible documentation
+  - [x] Created basic website structure with index.html
+  - [x] Added .nojekyll and CNAME files
+  - [x] Set up asset directories (css, js, img)
+  - [x] Updated build process to output to website directory
+  - [x] Added basic styling and JavaScript
+- [x] Create a clear separation between source docs and built docs
+- [x] Set up a build process for generating static website from markdown
+- [x] Organize specs, public docs, and website builder
+- [x] Create a GitHub Actions workflow for automatic docs deployment
 - [ ] Test the GitHub Pages deployment
 - [ ] Verify all documentation is up-to-date with the latest code changes
 - [ ] Ensure correct implementation-specific references (rust-, go-, ts- prefixes)
+
+### Documentation Updates Needed
+- [ ] Update all code examples to use new standardized function names
+- [ ] Add migration guide for users updating from Kagi to Runar
+- [ ] Create API documentation for all public interfaces
+- [ ] Add troubleshooting guides for common issues
+- [ ] Create contribution guidelines for documentation
 
 ## 5. Integration and Testing
 
