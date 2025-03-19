@@ -1,0 +1,389 @@
+<h1>P2P Transport Layer Specification</h1>
+<p>This specification defines a peer-to-peer (P2P) transport layer implemented in Rust, designed as an event bus using QUIC as the transport protocol. It supports network-specific participation, decentralized storage via a Kademlia Distributed Hash Table (DHT), and secure access control through cryptographic tokens.</p>
+<h2>Table of Contents</h2>
+<ol>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#core-components">Core Components</a><ul>
+<li><a href="#transport-layer">Transport Layer</a></li>
+<li><a href="#dht-system">DHT System</a></li>
+<li><a href="#network-management">Network Management</a></li>
+</ul>
+</li>
+<li><a href="#api-design">API Design</a><ul>
+<li><a href="#message-operations">Message Operations</a></li>
+<li><a href="#network-operations">Network Operations</a></li>
+<li><a href="#dht-operations">DHT Operations</a></li>
+</ul>
+</li>
+<li><a href="#security">Security</a><ul>
+<li><a href="#access-control">Access Control</a></li>
+<li><a href="#connection-security">Connection Security</a></li>
+</ul>
+</li>
+<li><a href="#implementation-details">Implementation Details</a><ul>
+<li><a href="#transport-implementation">Transport Implementation</a></li>
+<li><a href="#dht-implementation">DHT Implementation</a></li>
+</ul>
+</li>
+<li><a href="#integration">Integration</a><ul>
+<li><a href="#service-integration">Service Integration</a></li>
+<li><a href="#gateway-integration">Gateway Integration</a></li>
+<li><a href="#discovery-integration">Discovery Integration</a></li>
+</ul>
+</li>
+</ol>
+<h2>Overview</h2>
+<p>The P2P transport layer provides:</p>
+<ul>
+<li>QUIC-based reliable transport</li>
+<li>Network-scoped DHT for decentralized storage</li>
+<li>Secure peer authentication and authorization</li>
+<li>Integration with the Kagi node service architecture</li>
+<li>Event-based message routing and delivery</li>
+</ul>
+<h2>Core Components</h2>
+<h3>Transport Layer</h3>
+<p><strong>Requirements</strong>:</p>
+<ul>
+<li>Reliable message delivery using QUIC</li>
+<li>Support for Rust object serialization</li>
+<li>Peer-to-peer and broadcast messaging</li>
+<li>Connection multiplexing</li>
+<li>Flow control and backpressure</li>
+</ul>
+<p><strong>Features</strong>:</p>
+<ul>
+<li>Asynchronous message handling</li>
+<li>Automatic reconnection</li>
+<li>Connection pooling</li>
+<li>Quality of service options</li>
+<li>Error recovery</li>
+</ul>
+<p>The following diagram illustrates the P2P message routing flow:</p>
+<pre><code class="language-mermaid">flowchart TD
+    A[Message Created] --&gt; B[Serialize Message]
+    B --&gt; C{Local or Remote?}
+    C --&gt;|Local| D[Process Locally]
+    C --&gt;|Remote| E[Lookup Peer Route]
+    E --&gt; F{Direct Connection?}
+    F --&gt;|Yes| G[Send via Direct Connection]
+    F --&gt;|No| H[Find Route via DHT]
+    H --&gt; I[Forward to Next Hop]
+    I --&gt; J[Receive at Destination]
+    J --&gt; K[Deserialize Message]
+    K --&gt; L[Process Message]
+    L --&gt; M[Generate Response]
+    M --&gt; N[Return via Same Route]
+</code></pre>
+<h3>DHT System</h3>
+<p><strong>Features</strong>:</p>
+<ul>
+<li>Kademlia-based routing</li>
+<li>Network-scoped key-value storage</li>
+<li>Replication and redundancy</li>
+<li>Automatic peer discovery</li>
+<li>Value expiration and refresh</li>
+</ul>
+<h3>Network Management</h3>
+<p><strong>Features</strong>:</p>
+<ul>
+<li>Network-specific participation</li>
+<li>Access token validation</li>
+<li>Peer authentication</li>
+<li>Connection management</li>
+<li>Network metadata</li>
+</ul>
+<h2>API Design</h2>
+<h3>Message Operations</h3>
+<pre><code class="language-rust">/// Send a message to a specific peer
+async fn send_to_peer&lt;T: Serialize&gt;(
+    &amp;self,
+    peer_id: PeerId,
+    message: T
+) -&gt; Result&lt;(), Error&gt;;
+
+/// Broadcast a message to multiple peers
+async fn broadcast&lt;T: Serialize&gt;(
+    &amp;self,
+    peer_ids: &amp;[PeerId],
+    message: T
+) -&gt; Result&lt;(), Error&gt;;
+
+/// Start listening for incoming messages
+fn start_listening(&amp;self) -&gt; mpsc::Receiver&lt;(PeerId, Vec&lt;u8&gt;)&gt;;
+</code></pre>
+<h3>Network Operations</h3>
+<pre><code class="language-rust">/// Configure network metadata
+async fn set_network_metadata(
+    &amp;self,
+    network_id: NetworkId,
+    admin_pubkey: PublicKey,
+    name: String
+) -&gt; Result&lt;(), Error&gt;;
+
+/// Add network access token
+async fn add_network_token(
+    &amp;self,
+    network_id: NetworkId,
+    token: AccessToken
+) -&gt; Result&lt;(), Error&gt;;
+
+/// Connect to a peer in a specific network
+async fn connect_to_peer(
+    &amp;self,
+    peer_id: PeerId,
+    network_id: NetworkId,
+    address: String
+) -&gt; Result&lt;Connection, Error&gt;;
+</code></pre>
+<h3>DHT Operations</h3>
+<p>The following diagram illustrates the DHT operations in the P2P network:</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant N1 as Node1
+    participant K1 as Kademlia (Node1)
+    participant K2 as Kademlia (Node2)
+    participant N2 as Node2
+    participant K3 as Kademlia (Node3)
+    participant N3 as Node3
+
+    N1-&gt;&gt;K1: Store Value (Key, Value)
+    K1-&gt;&gt;K2: Forward to Closer Node
+    K2-&gt;&gt;N2: Store Value
+    Note over N2: Value Stored
+
+    N3-&gt;&gt;K3: Get Value (Key)
+    K3-&gt;&gt;K2: Query Closer Node
+    K2-&gt;&gt;N2: Retrieve Value
+    N2--&gt;&gt;K2: Return Value
+    K2--&gt;&gt;K3: Forward Value
+    K3--&gt;&gt;N3: Return Value
+</code></pre>
+<pre><code class="language-rust">/// Store a value in the DHT
+async fn dht_put(
+    &amp;self,
+    network_id: NetworkId,
+    key: Vec&lt;u8&gt;,
+    value: Vec&lt;u8&gt;
+) -&gt; Result&lt;(), Error&gt;;
+
+/// Retrieve a value from the DHT
+async fn dht_get(
+    &amp;self,
+    network_id: NetworkId,
+    key: Vec&lt;u8&gt;
+) -&gt; Result&lt;Option&lt;Vec&lt;u8&gt;&gt;, Error&gt;;
+
+/// Bootstrap the DHT using a known peer
+async fn bootstrap(
+    &amp;self,
+    network_id: NetworkId,
+    bootstrap_peer: PeerId
+) -&gt; Result&lt;(), Error&gt;;
+</code></pre>
+<h2>Security</h2>
+<p>The following diagram illustrates the network authentication process:</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client Node
+    participant A as Auth Service
+    participant N as Network Admin
+    participant T as Target Node
+
+    C-&gt;&gt;N: Request Network Access
+    N-&gt;&gt;A: Generate Access Token
+    A--&gt;&gt;N: Signed Access Token
+    N--&gt;&gt;C: Provide Access Token
+    
+    C-&gt;&gt;T: Connect with Access Token
+    T-&gt;&gt;T: Validate Token
+    Note over T: Check Signature
+    Note over T: Verify Permissions
+    T--&gt;&gt;C: Connection Established/Rejected
+</code></pre>
+<p>The following flow diagram illustrates the security flow in the P2P network:</p>
+<pre><code class="language-mermaid">flowchart TD
+    A[Connection Request] --&gt; B[TLS Handshake]
+    B --&gt; C[Verify Certificate]
+    C --&gt; D{Certificate Valid?}
+    D --&gt;|No| E[Reject Connection]
+    D --&gt;|Yes| F[Extract Peer ID]
+    F --&gt; G[Verify Network Access]
+    G --&gt; H{Access Token?}
+    H --&gt;|No| I[Request Access Token]
+    H --&gt;|Yes| J[Validate Token]
+    J --&gt; K{Token Valid?}
+    K --&gt;|No| L[Reject Connection]
+    K --&gt;|Yes| M[Establish Secure Channel]
+    M --&gt; N[Apply Message Encryption]
+    N --&gt; O[Connection Established]
+    
+    P[Message Received] --&gt; Q[Decrypt Message]
+    Q --&gt; R[Verify Message Integrity]
+    R --&gt; S{Integrity Check?}
+    S --&gt;|Fail| T[Discard Message]
+    S --&gt;|Pass| U[Process Message]
+</code></pre>
+<h3>Access Control</h3>
+<p><strong>Token Validation</strong>:</p>
+<pre><code class="language-rust">impl P2PTransport {
+    async fn validate_peer_token(
+        &amp;self,
+        peer_id: &amp;PeerId,
+        network_id: &amp;NetworkId,
+        token: &amp;AccessToken
+    ) -&gt; Result&lt;bool, Error&gt; {
+        // Verify token signature using network&#39;s public key
+        if !token.verify(network_id)? {
+            return Ok(false);
+        }
+        
+        // Check token belongs to the peer
+        if token.peer_id != *peer_id {
+            return Ok(false);
+        }
+        
+        // Check expiration
+        if token.is_expired() {
+            return Ok(false);
+        }
+        
+        Ok(true)
+    }
+}
+</code></pre>
+<h3>Connection Security</h3>
+<p><strong>QUIC Configuration</strong>:</p>
+<pre><code class="language-rust">impl P2PTransport {
+    fn configure_quic(&amp;self) -&gt; QuicConfig {
+        QuicConfig::new()
+            .with_max_idle_timeout(Duration::from_secs(30))
+            .with_max_concurrent_bidi_streams(100u32)
+            .with_max_concurrent_uni_streams(100u32)
+            .with_application_protocols(vec![&quot;kagi-p2p-1&quot;.into()])
+    }
+}
+</code></pre>
+<h2>Implementation Details</h2>
+<h3>Transport Implementation</h3>
+<p><strong>Connection Management</strong>:</p>
+<pre><code class="language-rust">pub struct P2PTransport {
+    endpoint: QuicEndpoint,
+    connections: Arc&lt;RwLock&lt;HashMap&lt;PeerId, Connection&gt;&gt;&gt;,
+    networks: Arc&lt;RwLock&lt;HashMap&lt;NetworkId, NetworkState&gt;&gt;&gt;,
+    message_tx: mpsc::Sender&lt;(PeerId, Vec&lt;u8&gt;)&gt;,
+    message_rx: mpsc::Receiver&lt;(PeerId, Vec&lt;u8&gt;)&gt;,
+}
+
+impl P2PTransport {
+    async fn handle_connection(&amp;self, conn: Connection) {
+        while let Ok(stream) = conn.accept_bi().await {
+            let (mut send, mut recv) = stream;
+            
+            // Handle incoming messages
+            while let Some(message) = recv.next().await {
+                self.process_message(message).await?;
+            }
+        }
+    }
+}
+</code></pre>
+<h3>DHT Implementation</h3>
+<p><strong>Kademlia Integration</strong>:</p>
+<pre><code class="language-rust">pub struct DHTNode {
+    routing_table: RoutingTable,
+    storage: Arc&lt;RwLock&lt;HashMap&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;&gt;&gt;,
+    network_id: NetworkId,
+}
+
+impl DHTNode {
+    async fn handle_find_value(
+        &amp;self,
+        key: Vec&lt;u8&gt;
+    ) -&gt; Result&lt;Option&lt;Vec&lt;u8&gt;&gt;, Error&gt; {
+        // Check local storage first
+        if let Some(value) = self.storage.read().await.get(&amp;key) {
+            return Ok(Some(value.clone()));
+        }
+        
+        // Query closest peers
+        let closest = self.routing_table.closest_peers(&amp;key);
+        for peer in closest {
+            if let Some(value) = self.query_peer(peer, key.clone()).await? {
+                return Ok(Some(value));
+            }
+        }
+        
+        Ok(None)
+    }
+}
+</code></pre>
+<h2>Integration</h2>
+<h3>Service Integration</h3>
+<p>The P2P transport integrates with Kagi services through the service registry:</p>
+<pre><code class="language-rust">impl P2PTransport {
+    async fn forward_to_service(
+        &amp;self,
+        service: &amp;str,
+        request: ServiceRequest
+    ) -&gt; Result&lt;ServiceResponse, Error&gt; {
+        let service = self.registry.get_service(service)?;
+        service.process_request(request).await
+    }
+}
+</code></pre>
+<h3>Gateway Integration</h3>
+<p>Integration with the Gateway module for external access:</p>
+<pre><code class="language-rust">impl Gateway {
+    async fn handle_p2p_request(
+        &amp;self,
+        req: HttpRequest
+    ) -&gt; Result&lt;HttpResponse, Error&gt; {
+        let peer_id = self.extract_peer_id(&amp;req)?;
+        let network_id = self.extract_network_id(&amp;req)?;
+        
+        // Validate access token
+        let token = self.extract_token(&amp;req)?;
+        if !self.p2p.validate_peer_token(peer_id, network_id, &amp;token).await? {
+            return Err(Error::Unauthorized);
+        }
+        
+        // Forward request to P2P network
+        let response = self.p2p
+            .send_to_peer(peer_id, req.into_inner())
+            .await?;
+            
+        Ok(response.into())
+    }
+}
+</code></pre>
+<h3>Discovery Integration</h3>
+<p>Integration with the Discovery mechanism:</p>
+<pre><code class="language-rust">impl P2PTransport {
+    async fn handle_discovery_event(
+        &amp;self,
+        event: DiscoveryEvent
+    ) -&gt; Result&lt;(), Error&gt; {
+        match event {
+            DiscoveryEvent::PeerFound { peer_id, addr, networks } =&gt; {
+                for network_id in networks {
+                    if self.is_network_member(&amp;network_id) {
+                        self.connect_to_peer(peer_id, network_id, addr.clone()).await?;
+                    }
+                }
+            }
+            DiscoveryEvent::PeerLost { peer_id } =&gt; {
+                self.remove_peer(peer_id).await?;
+            }
+        }
+        Ok(())
+    }
+}
+</code></pre>
+<p>This specification aligns with:</p>
+<ul>
+<li>Keys Management Specification for PeerId and NetworkId definitions</li>
+<li>Discovery Mechanism Specification for peer discovery</li>
+<li>Gateway Specification for external access</li>
+<li>Service Architecture for message routing and processing</li>
+</ul>
+<h2>Examples</h2>
+<p>This section will be expanded with practical examples.</p>

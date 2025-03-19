@@ -1,0 +1,62 @@
+<h1>Kagi Overview</h1>
+<h2>Introduction</h2>
+<p>Kagi is a powerful distributed system framework built in Rust. It provides a declarative, Actix-inspired approach to defining services, actions, and event subscriptions for building resilient peer-to-peer applications.</p>
+<h2>Key Features</h2>
+<ul>
+<li><strong>Distributed Architecture</strong>: Fully distributed with no central points of failure</li>
+<li><strong>End-to-End Encryption</strong>: Secure communication between nodes</li>
+<li><strong>Declarative API</strong>: Easy-to-use macros for defining services and handlers</li>
+<li><strong>Event-Based Communication</strong>: Publish-subscribe pattern for system events</li>
+<li><strong>Fault Tolerance</strong>: Resilient to network failures and node crashes</li>
+<li><strong>Extensible</strong>: Easy to add new services and functionality</li>
+</ul>
+<h2>Core Components</h2>
+<p>Kagi consists of several core components:</p>
+<ol>
+<li><strong>Node</strong>: The main runtime that hosts services and manages communication</li>
+<li><strong>Services</strong>: Independent modules that provide specific functionality</li>
+<li><strong>Actions</strong>: Request handlers that process incoming service requests</li>
+<li><strong>Events</strong>: Asynchronous messages for inter-service communication</li>
+<li><strong>Discovery</strong>: Mechanism for finding other nodes in the network</li>
+<li><strong>P2P Layer</strong>: Peer-to-peer communication layer</li>
+</ol>
+<h2>Architecture Overview</h2>
+<p>The following diagram illustrates the high-level architecture of a Kagi node:</p>
+<pre><code class="language-mermaid">graph TD
+    Client[Client Applications] --&gt; Gateway
+    Gateway[Gateway Service] --&gt; Router
+    Router[Action Router] --&gt; S1[Service 1]
+    Router --&gt; S2[Service 2]
+    Router --&gt; S3[Service 3]
+    S1 &lt;--&gt; EventBus[Event Bus]
+    S2 &lt;--&gt; EventBus
+    S3 &lt;--&gt; EventBus
+    EventBus &lt;--&gt; P2P[P2P Layer]
+    P2P &lt;--&gt; Network[Network]
+</code></pre>
+<h2>Service Model</h2>
+<p>Services in Kagi are defined using a declarative approach with macros:</p>
+<pre><code class="language-rust">#[kagi::service(name = &quot;example_service&quot;)]
+struct ExampleService {
+    // Service state
+}
+
+impl ExampleService {
+    #[action(&quot;perform_task&quot;)]
+    async fn perform_task(&amp;self, context: &amp;RequestContext, 
+                         #[param(&quot;input&quot;)] input: String) -&gt; Result&lt;ServiceResponse&gt; {
+        // Handler implementation
+    }
+    
+    #[subscribe(&quot;event/type&quot;)]
+    async fn handle_event(&amp;self, payload: serde_json::Value) -&gt; Result&lt;()&gt; {
+        // Event handler implementation
+    }
+}
+</code></pre>
+<h2>Next Steps</h2>
+<ul>
+<li><a href="installation">Installation Guide</a> - Install Kagi and its dependencies</li>
+<li><a href="quickstart">Quick Start Guide</a> - Build your first Kagi application</li>
+<li><a href="../core/architecture">Architecture</a> - Detailed architecture documentation</li>
+</ul>

@@ -1,0 +1,670 @@
+<h1>Example Service Implementation</h1>
+<p>This document provides a complete example of a service implementation in the Kagi node system, demonstrating both request-response and publish-subscribe patterns.</p>
+<h2>Table of Contents</h2>
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+</ul>
+<h2>DataService Example</h2>
+<p>Below is an example of a <code>DataService</code> that manages data records, with operations to create, retrieve, update, and delete records, as well as publish events when records change.</p>
+<pre><code class="language-rust">use anyhow::{anyhow, Result};
+use async_trait::async_trait;
+use chrono::Utc;
+use kagi_node::services::{
+    AbstractService, RequestContext, ResponseStatus, ServiceRequest, ServiceResponse, ValueType,
+};
+use kagi_node::services::abstract_service::ServiceState;
+use kagi_node::vmap;
+use serde_json::json;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use uuid::Uuid;
+
+/// A data record
+#[derive(Clone, Debug)]
+struct DataRecord {
+    id: String,
+    name: String,
+    value: String,
+    created_at: String,
+    updated_at: String,
+}
+
+impl DataRecord {
+    fn new(name: &amp;str, value: &amp;str) -&gt; Self {
+        let now = Utc::now().to_rfc3339();
+        Self {
+            id: Uuid::new_v4().to_string(),
+            name: name.to_string(),
+            value: value.to_string(),
+            created_at: now.clone(),
+            updated_at: now,
+        }
+    }
+
+    fn update(&amp;mut self, value: &amp;str) {
+        self.value = value.to_string();
+        self.updated_at = Utc::now().to_rfc3339();
+    }
+
+    fn to_value_type(&amp;self) -&gt; ValueType {
+        vmap! {
+            &quot;id&quot; =&gt; self.id.clone(),
+            &quot;name&quot; =&gt; self.name.clone(),
+            &quot;value&quot; =&gt; self.value.clone(),
+            &quot;created_at&quot; =&gt; self.created_at.clone(),
+            &quot;updated_at&quot; =&gt; self.updated_at.clone()
+        }
+    }
+}
+
+/// DataService manages a collection of data records
+pub struct DataService {
+    name: String,
+    path: String,
+    records: Arc&lt;Mutex&lt;HashMap&lt;String, DataRecord&gt;&gt;&gt;,
+    state: Mutex&lt;ServiceState&gt;,
+}
+
+impl DataService {
+    pub fn new(name: &amp;str) -&gt; Self {
+        DataService {
+            name: name.to_string(),
+            path: name.to_string(),
+            records: Arc::new(Mutex::new(HashMap::new())),
+            state: Mutex::new(ServiceState::Created),
+        }
+    }
+
+    // CRUD Operations
+    
+    // Create a new record
+    async fn create_record(&amp;self, context: &amp;RequestContext, name: &amp;str, value: &amp;str) -&gt; Result&lt;ServiceResponse&gt; {
+        let record = DataRecord::new(name, value);
+        let record_id = record.id.clone();
+        
+        // Store the record
+        {
+            let mut records = self.records.lock().await;
+            records.insert(record.id.clone(), record.clone());
+        }
+        
+        // Publish event that a record was created
+        self.publish_record_event(context, &quot;created&quot;, &amp;record).await?;
+        
+        // Return success response with the new record ID
+        Ok(ServiceResponse {
+            status: ResponseStatus::Success,
+            message: format!(&quot;Record created with ID: {}&quot;, record_id),
+            data: Some(vmap! {
+                &quot;id&quot; =&gt; record_id
+            }),
+        })
+    }
+    
+    // Get a record by ID
+    async fn get_record(&amp;self, _context: &amp;RequestContext, id: &amp;str) -&gt; Result&lt;ServiceResponse&gt; {
+        let records = self.records.lock().await;
+        
+        if let Some(record) = records.get(id) {
+            Ok(ServiceResponse {
+                status: ResponseStatus::Success,
+                message: &quot;Record found&quot;.to_string(),
+                data: Some(record.to_value_type()),
+            })
+        } else {
+            Ok(ServiceResponse {
+                status: ResponseStatus::Error,
+                message: format!(&quot;Record with ID {} not found&quot;, id),
+                data: None,
+            })
+        }
+    }
+    
+    // Update a record
+    async fn update_record(&amp;self, context: &amp;RequestContext, id: &amp;str, value: &amp;str) -&gt; Result&lt;ServiceResponse&gt; {
+        let mut updated_record: Option&lt;DataRecord&gt; = None;
+        
+        // Update the record
+        {
+            let mut records = self.records.lock().await;
+            
+            if let Some(record) = records.get_mut(id) {
+                record.update(value);
+                updated_record = Some(record.clone());
+            }
+        }
+        
+        // Check if record was found and updated
+        if let Some(record) = updated_record {
+            // Publish event that a record was updated
+            self.publish_record_event(context, &quot;updated&quot;, &amp;record).await?;
+            
+            Ok(ServiceResponse {
+                status: ResponseStatus::Success,
+                message: format!(&quot;Record with ID {} updated&quot;, id),
+                data: Some(record.to_value_type()),
+            })
+        } else {
+            Ok(ServiceResponse {
+                status: ResponseStatus::Error,
+                message: format!(&quot;Record with ID {} not found&quot;, id),
+                data: None,
+            })
+        }
+    }
+    
+    // Delete a record
+    async fn delete_record(&amp;self, context: &amp;RequestContext, id: &amp;str) -&gt; Result&lt;ServiceResponse&gt; {
+        let deleted_record: Option&lt;DataRecord&gt;;
+        
+        // Delete the record
+        {
+            let mut records = self.records.lock().await;
+            deleted_record = records.remove(id);
+        }
+        
+        // Check if record was found and deleted
+        if let Some(record) = deleted_record {
+            // Publish event that a record was deleted
+            self.publish_record_event(context, &quot;deleted&quot;, &amp;record).await?;
+            
+            Ok(ServiceResponse {
+                status: ResponseStatus::Success,
+                message: format!(&quot;Record with ID {} deleted&quot;, id),
+                data: None,
+            })
+        } else {
+            Ok(ServiceResponse {
+                status: ResponseStatus::Error,
+                message: format!(&quot;Record with ID {} not found&quot;, id),
+                data: None,
+            })
+        }
+    }
+    
+    // List all records
+    async fn list_records(&amp;self, _context: &amp;RequestContext) -&gt; Result&lt;ServiceResponse&gt; {
+        let records = self.records.lock().await;
+        
+        let records_array = records
+            .values()
+            .map(|record| record.to_value_type())
+            .collect::&lt;Vec&lt;ValueType&gt;&gt;();
+        
+        Ok(ServiceResponse {
+            status: ResponseStatus::Success,
+            message: format!(&quot;Found {} records&quot;, records_array.len()),
+            data: Some(ValueType::Array(records_array)),
+        })
+    }
+    
+    // Event Publishing
+    
+    // Publish an event for a record change
+    async fn publish_record_event(&amp;self, context: &amp;RequestContext, event_type: &amp;str, record: &amp;DataRecord) -&gt; Result&lt;()&gt; {
+        // Create the full topic with service name
+        let topic = format!(&quot;{}/{}&quot;, self.name, event_type);
+        
+        // Create event data
+        let event_data = json!({
+            &quot;event_type&quot;: event_type,
+            &quot;record&quot;: {
+                &quot;id&quot;: record.id,
+                &quot;name&quot;: record.name,
+                &quot;value&quot;: record.value,
+                &quot;created_at&quot;: record.created_at,
+                &quot;updated_at&quot;: record.updated_at
+            },
+            &quot;timestamp&quot;: Utc::now().to_rfc3339()
+        });
+        
+        // Publish the event
+        context.publish(&amp;topic, event_data).await?;
+        
+        Ok(())
+    }
+    
+    // Set up all event subscriptions
+    async fn setup_subscriptions(&amp;self, context: &amp;RequestContext) -&gt; Result&lt;()&gt; {
+        // No subscriptions needed for this service
+        // But this is where we would set them up if needed
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl AbstractService for DataService {
+    fn name(&amp;self) -&gt; &amp;str {
+        &amp;self.name
+    }
+
+    fn path(&amp;self) -&gt; &amp;str {
+        &amp;self.path
+    }
+
+    fn state(&amp;self) -&gt; ServiceState {
+        *self.state.lock().unwrap()
+    }
+
+    async fn init(&amp;self, context: &amp;RequestContext) -&gt; Result&lt;()&gt; {
+        // Set up event subscriptions
+        self.setup_subscriptions(context).await?;
+        
+        // Update service state
+        let mut state = self.state.lock().unwrap();
+        *state = ServiceState::Initialized;
+        
+        Ok(())
+    }
+
+    async fn start(&amp;self) -&gt; Result&lt;()&gt; {
+        // Update service state
+        let mut state = self.state.lock().unwrap();
+        *state = ServiceState::Running;
+        
+        Ok(())
+    }
+
+    async fn stop(&amp;self) -&gt; Result&lt;()&gt; {
+        // Update service state
+        let mut state = self.state.lock().unwrap();
+        *state = ServiceState::Stopped;
+        
+        Ok(())
+    }
+
+    async fn process_request(&amp;self, request: ServiceRequest) -&gt; Result&lt;ServiceResponse&gt; {
+        // Get the request context and operation
+        let context = &amp;request.request_context;
+        let operation = request.operation.as_str();
+        
+        // Delegate to operation-specific methods
+        match operation {
+            &quot;create&quot; =&gt; {
+                // Extract required parameters
+                let name = request
+                    .get_param(&quot;name&quot;)
+                    .and_then(|v| v.as_str().map(String::from))
+                    .ok_or_else(|| anyhow!(&quot;Missing required parameter: name&quot;))?;
+                
+                let value = request
+                    .get_param(&quot;value&quot;)
+                    .and_then(|v| v.as_str().map(String::from))
+                    .ok_or_else(|| anyhow!(&quot;Missing required parameter: value&quot;))?;
+                
+                self.create_record(context, &amp;name, &amp;value).await
+            }
+            &quot;get&quot; =&gt; {
+                // Extract required parameters
+                let id = request
+                    .get_param(&quot;id&quot;)
+                    .and_then(|v| v.as_str().map(String::from))
+                    .ok_or_else(|| anyhow!(&quot;Missing required parameter: id&quot;))?;
+                
+                self.get_record(context, &amp;id).await
+            }
+            &quot;update&quot; =&gt; {
+                // Extract required parameters
+                let id = request
+                    .get_param(&quot;id&quot;)
+                    .and_then(|v| v.as_str().map(String::from))
+                    .ok_or_else(|| anyhow!(&quot;Missing required parameter: id&quot;))?;
+                
+                let value = request
+                    .get_param(&quot;value&quot;)
+                    .and_then(|v| v.as_str().map(String::from))
+                    .ok_or_else(|| anyhow!(&quot;Missing required parameter: value&quot;))?;
+                
+                self.update_record(context, &amp;id, &amp;value).await
+            }
+            &quot;delete&quot; =&gt; {
+                // Extract required parameters
+                let id = request
+                    .get_param(&quot;id&quot;)
+                    .and_then(|v| v.as_str().map(String::from))
+                    .ok_or_else(|| anyhow!(&quot;Missing required parameter: id&quot;))?;
+                
+                self.delete_record(context, &amp;id).await
+            }
+            &quot;list&quot; =&gt; {
+                self.list_records(context).await
+            }
+            _ =&gt; Ok(ServiceResponse {
+                status: ResponseStatus::Error,
+                message: format!(&quot;Unknown operation: {}&quot;, operation),
+                data: None,
+            }),
+        }
+    }
+
+    fn description(&amp;self) -&gt; String {
+        &quot;Service for managing data records&quot;.to_string()
+    }
+}
+</code></pre>
+<h2>DataMonitorService Example</h2>
+<p>Below is an example of a <code>DataMonitorService</code> that subscribes to events from the <code>DataService</code> and keeps track of statistics:</p>
+<pre><code class="language-rust">use anyhow::Result;
+use async_trait::async_trait;
+use kagi_node::services::{
+    AbstractService, RequestContext, ResponseStatus, ServiceRequest, ServiceResponse, ValueType,
+};
+use kagi_node::services::abstract_service::ServiceState;
+use kagi_node::vmap;
+use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+/// DataMonitorService listens to events from DataService and tracks statistics
+pub struct DataMonitorService {
+    name: String,
+    path: String,
+    state: Mutex&lt;ServiceState&gt;,
+    // Statistics counters
+    stats: Arc&lt;Mutex&lt;HashMap&lt;String, usize&gt;&gt;&gt;,
+}
+
+impl DataMonitorService {
+    pub fn new(name: &amp;str) -&gt; Self {
+        let mut stats = HashMap::new();
+        
+        // Initialize counters
+        stats.insert(&quot;created&quot;.to_string(), 0);
+        stats.insert(&quot;updated&quot;.to_string(), 0);
+        stats.insert(&quot;deleted&quot;.to_string(), 0);
+        stats.insert(&quot;total&quot;.to_string(), 0);
+        
+        DataMonitorService {
+            name: name.to_string(),
+            path: name.to_string(),
+            state: Mutex::new(ServiceState::Created),
+            stats: Arc::new(Mutex::new(stats)),
+        }
+    }
+    
+    // Get all statistics
+    async fn get_stats(&amp;self) -&gt; Result&lt;ServiceResponse&gt; {
+        let stats = self.stats.lock().await;
+        
+        let stats_map = stats
+            .iter()
+            .map(|(k, v)| (k.clone(), ValueType::Number(*v as f64)))
+            .collect::&lt;HashMap&lt;String, ValueType&gt;&gt;();
+        
+        Ok(ServiceResponse {
+            status: ResponseStatus::Success,
+            message: &quot;Statistics retrieved&quot;.to_string(),
+            data: Some(ValueType::Map(stats_map)),
+        })
+    }
+    
+    // Handle event from DataService
+    async fn handle_data_event(&amp;self, event_type: &amp;str, payload: Value) {
+        // Update statistics based on event type
+        let mut stats = self.stats.lock().await;
+        
+        // Increment the specific counter
+        if let Some(count) = stats.get_mut(event_type) {
+            *count += 1;
+        }
+        
+        // Increment total counter
+        if let Some(total) = stats.get_mut(&quot;total&quot;) {
+            *total += 1;
+        }
+        
+        // Log the event details
+        println!(
+            &quot;DataMonitorService: Received {} event for record ID: {}&quot;,
+            event_type,
+            payload[&quot;record&quot;][&quot;id&quot;].as_str().unwrap_or(&quot;&lt;unknown&gt;&quot;)
+        );
+    }
+    
+    // Set up all event subscriptions
+    async fn setup_subscriptions(&amp;self, context: &amp;RequestContext) -&gt; Result&lt;()&gt; {
+        let self_created = Arc::new(self.clone());
+        let self_updated = Arc::new(self.clone());
+        let self_deleted = Arc::new(self.clone());
+        
+        // Subscribe to &quot;created&quot; events from DataService
+        context
+            .subscribe(&quot;dataService/created&quot;, move |payload| {
+                let self_ref = self_created.clone();
+                
+                if let ValueType::Json(json_value) = payload {
+                    // Spawn a task to handle the event asynchronously
+                    tokio::spawn(async move {
+                        self_ref.handle_data_event(&quot;created&quot;, json_value).await;
+                    });
+                }
+                
+                Ok(())
+            })
+            .await?;
+        
+        // Subscribe to &quot;updated&quot; events from DataService
+        context
+            .subscribe(&quot;dataService/updated&quot;, move |payload| {
+                let self_ref = self_updated.clone();
+                
+                if let ValueType::Json(json_value) = payload {
+                    // Spawn a task to handle the event asynchronously
+                    tokio::spawn(async move {
+                        self_ref.handle_data_event(&quot;updated&quot;, json_value).await;
+                    });
+                }
+                
+                Ok(())
+            })
+            .await?;
+        
+        // Subscribe to &quot;deleted&quot; events from DataService
+        context
+            .subscribe(&quot;dataService/deleted&quot;, move |payload| {
+                let self_ref = self_deleted.clone();
+                
+                if let ValueType::Json(json_value) = payload {
+                    // Spawn a task to handle the event asynchronously
+                    tokio::spawn(async move {
+                        self_ref.handle_data_event(&quot;deleted&quot;, json_value).await;
+                    });
+                }
+                
+                Ok(())
+            })
+            .await?;
+        
+        Ok(())
+    }
+}
+
+// Implement Clone for DataMonitorService to support closures in subscriptions
+impl Clone for DataMonitorService {
+    fn clone(&amp;self) -&gt; Self {
+        Self {
+            name: self.name.clone(),
+            path: self.path.clone(),
+            state: Mutex::new(*self.state.lock().unwrap()),
+            stats: self.stats.clone(),
+        }
+    }
+}
+
+#[async_trait]
+impl AbstractService for DataMonitorService {
+    fn name(&amp;self) -&gt; &amp;str {
+        &amp;self.name
+    }
+
+    fn path(&amp;self) -&gt; &amp;str {
+        &amp;self.path
+    }
+
+    fn state(&amp;self) -&gt; ServiceState {
+        *self.state.lock().unwrap()
+    }
+
+    async fn init(&amp;self, context: &amp;RequestContext) -&gt; Result&lt;()&gt; {
+        // Set up event subscriptions
+        self.setup_subscriptions(context).await?;
+        
+        // Update service state
+        let mut state = self.state.lock().unwrap();
+        *state = ServiceState::Initialized;
+        
+        Ok(())
+    }
+
+    async fn start(&amp;self) -&gt; Result&lt;()&gt; {
+        // Update service state
+        let mut state = self.state.lock().unwrap();
+        *state = ServiceState::Running;
+        
+        Ok(())
+    }
+
+    async fn stop(&amp;self) -&gt; Result&lt;()&gt; {
+        // Update service state
+        let mut state = self.state.lock().unwrap();
+        *state = ServiceState::Stopped;
+        
+        Ok(())
+    }
+
+    async fn process_request(&amp;self, request: ServiceRequest) -&gt; Result&lt;ServiceResponse&gt; {
+        // Get the operation
+        let operation = request.operation.as_str();
+        
+        // Delegate to operation-specific methods
+        match operation {
+            &quot;get_stats&quot; =&gt; {
+                self.get_stats().await
+            }
+            _ =&gt; Ok(ServiceResponse {
+                status: ResponseStatus::Error,
+                message: format!(&quot;Unknown operation: {}&quot;, operation),
+                data: None,
+            }),
+        }
+    }
+
+    fn description(&amp;self) -&gt; String {
+        &quot;Service for monitoring data events&quot;.to_string()
+    }
+}
+</code></pre>
+<h2>Usage Example</h2>
+<p>Here&#39;s an example of how to use these services in a Kagi node:</p>
+<pre><code class="language-rust">use anyhow::Result;
+use kagi_node::node::{Node, NodeConfig};
+use kagi_node::vmap;
+use tokio;
+
+#[tokio::main]
+async fn main() -&gt; Result&lt;()&gt; {
+    // Create and configure the node
+    let config = NodeConfig::new(
+        &quot;my_node&quot;,
+        &quot;./data&quot;,
+        &quot;./data/db&quot;,
+    );
+    let mut node = Node::new(config).await?;
+    
+    // Initialize the node
+    node.init().await?;
+    
+    // Create and add the services
+    let data_service = DataService::new(&quot;dataService&quot;);
+    let monitor_service = DataMonitorService::new(&quot;dataMonitor&quot;);
+    
+    node.add_service(data_service).await?;
+    node.add_service(monitor_service).await?;
+    
+    // Create a new data record
+    let create_result = node.request(
+        &quot;dataService/create&quot;,
+        vmap! {
+            &quot;name&quot; =&gt; &quot;test_record&quot;,
+            &quot;value&quot; =&gt; &quot;initial value&quot;
+        },
+    ).await?;
+    
+    println!(&quot;Create result: {:?}&quot;, create_result);
+    
+    // Get the record ID from the response
+    let record_id = create_result
+        .data
+        .and_then(|data| data.get(&quot;id&quot;))
+        .and_then(|id| id.as_str().map(|s| s.to_string()))
+        .expect(&quot;Failed to get record ID&quot;);
+    
+    // Update the record
+    let update_result = node.request(
+        &quot;dataService/update&quot;,
+        vmap! {
+            &quot;id&quot; =&gt; record_id.clone(),
+            &quot;value&quot; =&gt; &quot;updated value&quot;
+        },
+    ).await?;
+    
+    println!(&quot;Update result: {:?}&quot;, update_result);
+    
+    // Retrieve the record
+    let get_result = node.request(
+        &quot;dataService/get&quot;,
+        vmap! {
+            &quot;id&quot; =&gt; record_id.clone()
+        },
+    ).await?;
+    
+    println!(&quot;Get result: {:?}&quot;, get_result);
+    
+    // Wait a bit for events to be processed
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    
+    // Get statistics from the monitor service
+    let stats_result = node.request(
+        &quot;dataMonitor/get_stats&quot;,
+        vmap! {},
+    ).await?;
+    
+    println!(&quot;Stats result: {:?}&quot;, stats_result);
+    
+    // Delete the record
+    let delete_result = node.request(
+        &quot;dataService/delete&quot;,
+        vmap! {
+            &quot;id&quot; =&gt; record_id
+        },
+    ).await?;
+    
+    println!(&quot;Delete result: {:?}&quot;, delete_result);
+    
+    // Wait a bit for events to be processed
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    
+    // Get final statistics
+    let final_stats_result = node.request(
+        &quot;dataMonitor/get_stats&quot;,
+        vmap! {},
+    ).await?;
+    
+    println!(&quot;Final stats result: {:?}&quot;, final_stats_result);
+    
+    Ok(())
+}
+</code></pre>
+<p>This example demonstrates:</p>
+<ol>
+<li>Creating two services: <code>DataService</code> for managing data records and <code>DataMonitorService</code> for tracking statistics</li>
+<li>The <code>DataService</code> publishes events when records are created, updated, or deleted</li>
+<li>The <code>DataMonitorService</code> subscribes to these events and updates statistics</li>
+<li>Both services follow the service lifecycle guidelines (init, start, stop)</li>
+<li>Both services implement the request-response pattern for their operations</li>
+<li>They establish subscriptions during initialization as per the architecture guidelines</li>
+</ol>
+<h2>Examples</h2>
+<p>This section will be expanded with practical examples.</p>

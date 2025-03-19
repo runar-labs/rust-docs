@@ -1,0 +1,304 @@
+<h1>Keys Management Specification</h1>
+<p>This specification defines the key management system for the P2P network, providing secure identities, network participation, and access control. It uses hierarchical deterministic (HD) key derivation for network keys and cryptographic tokens for authentication.</p>
+<h2>Table of Contents</h2>
+<ol>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#key-types">Key Types</a><ul>
+<li><a href="#master-key">Master Key</a></li>
+<li><a href="#network-key">Network Key</a></li>
+<li><a href="#peer-key">Peer Key</a></li>
+</ul>
+</li>
+<li><a href="#hd-key-derivation">HD Key Derivation</a><ul>
+<li><a href="#process">Process</a></li>
+<li><a href="#path-format">Path Format</a></li>
+<li><a href="#implementation">Implementation</a></li>
+</ul>
+</li>
+<li><a href="#access-tokens">Access Tokens</a><ul>
+<li><a href="#structure">Structure</a></li>
+<li><a href="#issuance">Issuance</a></li>
+<li><a href="#verification">Verification</a></li>
+<li><a href="#lifecycle">Lifecycle</a></li>
+</ul>
+</li>
+<li><a href="#security-considerations">Security Considerations</a></li>
+<li><a href="#implementation-examples">Implementation Examples</a></li>
+</ol>
+<h2>Overview</h2>
+<p>The key management system provides:</p>
+<ul>
+<li>Secure identity management for peers and networks</li>
+<li>Hierarchical key derivation for network administration</li>
+<li>Cryptographic access control through tokens</li>
+<li>Integration with P2P transport layer security</li>
+</ul>
+<h2>Key Types</h2>
+<h3>Master Key</h3>
+<ul>
+<li><strong>Type</strong>: Ed25519 key pair</li>
+<li><strong>Purpose</strong>: Root key for network administration</li>
+<li><strong>Usage</strong>: Derives network-specific keys</li>
+<li><strong>Storage</strong>: Must be securely stored offline</li>
+<li><strong>Backup</strong>: Required, using secure backup procedures</li>
+</ul>
+<h3>Network Key</h3>
+<ul>
+<li><strong>Type</strong>: Ed25519 key pair derived from master key</li>
+<li><strong>Purpose</strong>: Identifies and secures individual networks</li>
+<li><strong>Components</strong>:<ul>
+<li><strong>Public Key</strong>: Serves as the NetworkId</li>
+<li><strong>Private Key</strong>: Signs access tokens</li>
+</ul>
+</li>
+<li><strong>Derivation</strong>: Uses HD derivation path</li>
+<li><strong>Management</strong>: One per logical network</li>
+</ul>
+<h3>Peer Key</h3>
+<ul>
+<li><strong>Type</strong>: Ed25519 key pair</li>
+<li><strong>Purpose</strong>: Identifies individual peers</li>
+<li><strong>Components</strong>:<ul>
+<li><strong>Public Key</strong>: Used for authentication</li>
+<li><strong>PeerId</strong>: SHA-256 hash of public key</li>
+</ul>
+</li>
+<li><strong>Generation</strong>: Unique per peer instance</li>
+<li><strong>Storage</strong>: Local to peer, not shared</li>
+</ul>
+<h2>HD Key Derivation</h2>
+<h3>Process</h3>
+<ol>
+<li>Administrator starts with master key</li>
+<li>Derives network keys using standardized paths</li>
+<li>Each derived key represents a separate network</li>
+<li>Public keys become NetworkIds</li>
+</ol>
+<h3>Path Format</h3>
+<pre><code>m/44&#39;/0&#39;/n&#39;
+</code></pre>
+<p>Where:</p>
+<ul>
+<li><code>m</code>: Master key</li>
+<li><code>44&#39;</code>: Purpose (hardened, BIP-44)</li>
+<li><code>0&#39;</code>: Coin type (hardened, generic)</li>
+<li><code>n&#39;</code>: Network index (hardened, 0, 1, 2, etc.)</li>
+</ul>
+<h3>Implementation</h3>
+<pre><code class="language-rust">use ed25519_hd_key::DerivationPath;
+
+// Example key derivation
+fn derive_network_key(master_key: &amp;[u8], network_index: u32) -&gt; Result&lt;Ed25519KeyPair&gt; {
+    let path = format!(&quot;m/44&#39;/0&#39;/{}&#39;&quot;, network_index);
+    let derivation_path = DerivationPath::from_str(&amp;path)?;
+    
+    let derived_key = ed25519_hd_key::derive_key_from_path(
+        master_key,
+        &amp;derivation_path
+    )?;
+    
+    Ok(derived_key)
+}
+</code></pre>
+<h2>Access Tokens</h2>
+<h3>Structure</h3>
+<pre><code class="language-rust">pub struct AccessToken {
+    /// SHA-256 hash of peer&#39;s public key
+    pub peer_id: PeerId,
+    
+    /// Derived network public key
+    pub network_id: NetworkId,
+    
+    /// Optional Unix timestamp for expiration
+    pub expiration: Option&lt;u64&gt;,
+    
+    /// Signature of the above fields with network&#39;s private key
+    pub signature: Vec&lt;u8&gt;,
+    
+    /// Optional capabilities or permissions
+    pub capabilities: Option&lt;Vec&lt;Capability&gt;&gt;,
+}
+
+pub enum Capability {
+    Read,
+    Write,
+    Admin,
+    Custom(String),
+}
+</code></pre>
+<h3>Issuance</h3>
+<ol>
+<li>Administrator uses network private key</li>
+<li>Creates token with peer and network info</li>
+<li>Sets expiration and capabilities</li>
+<li>Signs token data</li>
+<li>Distributes to peer securely</li>
+</ol>
+<pre><code class="language-rust">impl AccessToken {
+    pub fn new(
+        peer_id: PeerId,
+        network_id: NetworkId,
+        expiration: Option&lt;u64&gt;,
+        capabilities: Option&lt;Vec&lt;Capability&gt;&gt;,
+        network_key: &amp;Ed25519PrivateKey
+    ) -&gt; Result&lt;Self&gt; {
+        let mut token = Self {
+            peer_id,
+            network_id,
+            expiration,
+            capabilities,
+            signature: Vec::new(),
+        };
+        
+        // Sign token data
+        token.signature = network_key.sign(&amp;token.data_to_sign())?;
+        
+        Ok(token)
+    }
+}
+</code></pre>
+<h3>Verification</h3>
+<ol>
+<li>Peer receives token</li>
+<li>Verifies signature using NetworkId</li>
+<li>Checks expiration time</li>
+<li>Validates capabilities</li>
+<li>Stores for connection handshakes</li>
+</ol>
+<pre><code class="language-rust">impl AccessToken {
+    pub fn verify(&amp;self, network_id: &amp;NetworkId) -&gt; Result&lt;bool&gt; {
+        // Check expiration
+        if let Some(exp) = self.expiration {
+            if exp &lt; current_unix_timestamp() {
+                return Ok(false);
+            }
+        }
+        
+        // Verify signature
+        network_id.verify(
+            &amp;self.data_to_sign(),
+            &amp;self.signature
+        )
+    }
+}
+</code></pre>
+<h3>Lifecycle</h3>
+<ol>
+<li><p><strong>Creation</strong>:</p>
+<ul>
+<li>Generated by network administrator</li>
+<li>Signed with network private key</li>
+<li>Distributed to peer securely</li>
+</ul>
+</li>
+<li><p><strong>Usage</strong>:</p>
+<ul>
+<li>Presented during connection handshake</li>
+<li>Verified by receiving peers</li>
+<li>Cached for session duration</li>
+</ul>
+</li>
+<li><p><strong>Renewal</strong>:</p>
+<ul>
+<li>Before expiration if temporary</li>
+<li>When capabilities change</li>
+<li>On network key rotation</li>
+</ul>
+</li>
+<li><p><strong>Revocation</strong>:</p>
+<ul>
+<li>Through expiration</li>
+<li>Via revocation list in DHT</li>
+<li>By network administrator</li>
+</ul>
+</li>
+</ol>
+<h2>Security Considerations</h2>
+<ol>
+<li><p><strong>Key Storage</strong>:</p>
+<ul>
+<li>Master key must be stored securely offline</li>
+<li>Network private keys require secure storage</li>
+<li>Peer keys stored with appropriate OS security</li>
+</ul>
+</li>
+<li><p><strong>Token Distribution</strong>:</p>
+<ul>
+<li>Use secure channels for token distribution</li>
+<li>Validate token before accepting</li>
+<li>Protect against replay attacks</li>
+</ul>
+</li>
+<li><p><strong>Revocation</strong>:</p>
+<ul>
+<li>Short-lived tokens preferred</li>
+<li>Maintain revocation lists</li>
+<li>Quick revocation mechanism</li>
+</ul>
+</li>
+<li><p><strong>Network Segmentation</strong>:</p>
+<ul>
+<li>Separate networks with different keys</li>
+<li>Limit token capabilities</li>
+<li>Isolate network access</li>
+</ul>
+</li>
+</ol>
+<h2>Implementation Examples</h2>
+<h3>Network Key Generation</h3>
+<pre><code class="language-rust">use ed25519_hd_key::{DerivationPath, KEY_SIZE};
+use rand::RngCore;
+
+fn generate_master_key() -&gt; Result&lt;[u8; KEY_SIZE]&gt; {
+    let mut key = [0u8; KEY_SIZE];
+    rand::thread_rng().fill_bytes(&amp;mut key);
+    Ok(key)
+}
+
+fn create_network(master_key: &amp;[u8], network_index: u32) -&gt; Result&lt;NetworkKey&gt; {
+    let derived_key = derive_network_key(master_key, network_index)?;
+    NetworkKey::from_ed25519_keypair(derived_key)
+}
+</code></pre>
+<h3>Token Management</h3>
+<pre><code class="language-rust">impl NetworkAdmin {
+    pub async fn issue_token(
+        &amp;self,
+        peer_id: PeerId,
+        capabilities: Vec&lt;Capability&gt;,
+        duration: Duration
+    ) -&gt; Result&lt;AccessToken&gt; {
+        let expiration = Some(
+            SystemTime::now()
+                .checked_add(duration)
+                .unwrap()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        );
+        
+        AccessToken::new(
+            peer_id,
+            self.network_id.clone(),
+            expiration,
+            Some(capabilities),
+            &amp;self.network_key
+        )
+    }
+}
+</code></pre>
+<p>This key management system provides a robust foundation for secure P2P network operations while maintaining flexibility for different network configurations and security requirements.</p>
+<p>Implementation Consideration for our architecture:</p>
+<ol>
+<li><p>some security flow will be implemented using the pub/sub api - anything that a service would need to integrat with the security system</p>
+</li>
+<li><p>some other security flows will need their own mechanism ( a socket, a http server etc) to talk to other components for reasons like: to make it more secure or that the pub/sub api is not available at that stage of the process.</p>
+</li>
+</ol>
+<p>so if the pub/sub api is available at that popint of the process and if there is not security concer, the data flow should gfo thought the pub/sub api meaning,
+instead of<br>component A -&gt; http request -&gt; component B
+shouod be
+component A -&gt; reqeust or publish event -&gt; componetn B using the kagi framework.</p>
+<p>when things needs to go external and nned to use http or websockets consider using the gateway service that allows to expose actions/events as REST API or the same pub/sub API via websockets ..  consider usign teh gateay before implemeting a custom web server.</p>
+<h2>Examples</h2>
+<p>This section will be expanded with practical examples.</p>

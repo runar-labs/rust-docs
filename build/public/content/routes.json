@@ -1,0 +1,111 @@
+[
+  {
+    "id": "home",
+    "title": "Home"
+  },
+  {
+    "id": "",
+    "title": "Getting Started",
+    "category": "Getting Started"
+  },
+  {
+    "id": "getting-started/overview",
+    "title": "Overview",
+    "category": "Getting Started"
+  },
+  {
+    "id": "getting-started/installation",
+    "title": "Installation",
+    "category": "Getting Started"
+  },
+  {
+    "id": "getting-started/quickstart",
+    "title": "Quickstart",
+    "category": "Getting Started"
+  },
+  {
+    "id": "getting-started/example",
+    "title": "Example Service",
+    "category": "Getting Started"
+  },
+  {
+    "id": "",
+    "title": "Core",
+    "category": "Core"
+  },
+  {
+    "id": "core/architecture",
+    "title": "Architecture",
+    "category": "Core"
+  },
+  {
+    "id": "core/p2p",
+    "title": "P2P",
+    "category": "Core"
+  },
+  {
+    "id": "core/discovery",
+    "title": "Discovery",
+    "category": "Core"
+  },
+  {
+    "id": "core/system-diagrams",
+    "title": "System Diagrams",
+    "category": "Core"
+  },
+  {
+    "id": "",
+    "title": "Services",
+    "category": "Services"
+  },
+  {
+    "id": "services/api",
+    "title": "API",
+    "category": "Services"
+  },
+  {
+    "id": "services/gateway",
+    "title": "Gateway",
+    "category": "Services"
+  },
+  {
+    "id": "",
+    "title": "Features",
+    "category": "Features"
+  },
+  {
+    "id": "features/caching",
+    "title": "Caching",
+    "category": "Features"
+  },
+  {
+    "id": "features/keys-management",
+    "title": "Keys Management",
+    "category": "Features"
+  },
+  {
+    "id": "features/logging",
+    "title": "Logging",
+    "category": "Features"
+  },
+  {
+    "id": "features/metrics",
+    "title": "Metrics",
+    "category": "Features"
+  },
+  {
+    "id": "",
+    "title": "Development",
+    "category": "Development"
+  },
+  {
+    "id": "development/macros",
+    "title": "Macros",
+    "category": "Development"
+  },
+  {
+    "id": "development/mobile",
+    "title": "Mobile",
+    "category": "Development"
+  }
+]

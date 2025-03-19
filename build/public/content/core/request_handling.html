@@ -1,0 +1,212 @@
+<h1>Request Handling Best Practices</h1>
+<h2>Overview</h2>
+<p>This document outlines best practices for handling service requests in Kagi. Following these guidelines ensures consistent, maintainable, and performant service implementations.</p>
+<h2>Service Request Handling</h2>
+<h3>The <code>handle_request</code> Method</h3>
+<p>The <code>handle_request</code> method is the main entry point for all service requests. This method replaced the deprecated <code>process_request</code> method and follows a clear pattern:</p>
+<pre><code class="language-rust">async fn handle_request(&amp;self, request: ServiceRequest) -&gt; Result&lt;ServiceResponse&gt; {
+    // 1. Log the incoming request
+    debug!(&quot;Handling request&quot;, &amp;request.request_context, 
+        &quot;operation&quot; =&gt; &amp;request.operation,
+        &quot;path&quot; =&gt; &amp;request.path
+    );
+    
+    // 2. Match on the operation and delegate to specialized methods
+    match request.operation.as_str() {
+        &quot;operation1&quot; =&gt; self.handle_operation1(request).await,
+        &quot;operation2&quot; =&gt; self.handle_operation2(request).await,
+        _ =&gt; {
+            warn!(&quot;Unknown operation&quot;, &amp;request.request_context, 
+                &quot;operation&quot; =&gt; &amp;request.operation
+            );
+            Ok(ServiceResponse {
+                status: ResponseStatus::Error,
+                message: format!(&quot;Unknown operation: {}&quot;, request.operation),
+                data: None,
+            })
+        }
+    }
+}
+</code></pre>
+<p><strong>Key principles</strong>:</p>
+<ol>
+<li>The <code>handle_request</code> method should be <strong>simple</strong> and focused on <strong>routing</strong> requests</li>
+<li>It should <strong>delegate</strong> to specialized methods for each operation</li>
+<li>It should <strong>not</strong> contain complex business logic</li>
+<li>It should provide appropriate <strong>logging</strong> for request tracking</li>
+</ol>
+<h3>Operation-Specific Methods</h3>
+<p>Each operation should have a dedicated handler method:</p>
+<pre><code class="language-rust">// Example operation handler
+async fn handle_operation1(&amp;self, request: ServiceRequest) -&gt; Result&lt;ServiceResponse&gt; {
+    // Extract parameters
+    let params = self.extract_parameters(request.params)?;
+    
+    // Process the request
+    let result = self.process_data(params).await?;
+    
+    // Return response
+    Ok(ServiceResponse {
+        status: ResponseStatus::Success,
+        message: &quot;Operation completed successfully&quot;.to_string(),
+        data: Some(result),
+    })
+}
+</code></pre>
+<h2>Service Lifecycle Concerns</h2>
+<h3>Anti-Pattern: Subscription Setup During Request Handling</h3>
+<p>A common anti-pattern is setting up subscriptions during request handling instead of during initialization:</p>
+<pre><code class="language-rust">// ANTI-PATTERN: Don&#39;t do this
+async fn handle_request(&amp;self, request: ServiceRequest) -&gt; Result&lt;ServiceResponse&gt; {
+    // Bad practice: Setting up or checking subscriptions during request handling
+    self.ensure_subscriptions(&amp;request.request_context).await?;
+    
+    // Rest of request handling...
+}
+
+// ANTI-PATTERN: Don&#39;t do this either
+async fn ensure_subscriptions(&amp;self, context: &amp;RequestContext) -&gt; Result&lt;()&gt; {
+    let setup = self.subscriptions_setup.lock().await;
+    if !*setup {
+        drop(setup); // Release the lock before calling setup_subscriptions
+        self.setup_subscriptions(context).await?;
+    }
+    Ok(())
+}
+</code></pre>
+<p><strong>Why this is problematic:</strong></p>
+<ol>
+<li>Adds unnecessary overhead to every request (acquiring/checking a lock)</li>
+<li>Creates potential thread contention on the lock</li>
+<li>Violates the principle that initialization should happen during service init</li>
+<li>Could lead to race conditions or duplicate subscriptions</li>
+<li>Makes the service behavior less predictable</li>
+</ol>
+<h3>Best Practice: Setup During Initialization</h3>
+<p>Instead, always set up subscriptions during the service&#39;s <code>init</code> method:</p>
+<pre><code class="language-rust">// GOOD PRACTICE: Do this
+async fn init(&amp;mut self, context: &amp;RequestContext) -&gt; Result&lt;()&gt; {
+    info!(&quot;Initializing MyService&quot;, context);
+    
+    // Set up subscriptions during initialization
+    self.setup_subscriptions(context).await?;
+    
+    // Update service state
+    *self.state.lock().await = ServiceState::Initialized;
+    
+    Ok(())
+}
+
+// No &quot;ensure&quot; method needed - init is called exactly once
+async fn setup_subscriptions(&amp;self, context: &amp;RequestContext) -&gt; Result&lt;()&gt; {
+    // Set up all required subscriptions
+    context.subscribe(&quot;topic/one&quot;, |payload| { /* handler */ }).await?;
+    context.subscribe(&quot;topic/two&quot;, |payload| { /* handler */ }).await?;
+    
+    Ok(())
+}
+</code></pre>
+<p><strong>Benefits of this approach:</strong></p>
+<ol>
+<li>Cleaner, more predictable service lifecycle</li>
+<li>Better performance (no lock overhead during request handling)</li>
+<li>Subscriptions are guaranteed to be set up before any requests are processed</li>
+<li>Avoids potential race conditions and duplicate subscriptions</li>
+<li>Makes the service&#39;s dependencies and requirements clear</li>
+</ol>
+<h2>Data Format Best Practices</h2>
+<h3>JSON vs VMap Usage</h3>
+<p>Follow these guidelines when working with JSON and VMap:</p>
+<ol>
+<li><strong>Minimize Conversions</strong>: Avoid unnecessary conversions between data formats</li>
+<li><strong>Preserve Original Format</strong>: If data arrives as JSON, keep it as JSON; if it&#39;s a Map/VMap, keep it as VMap</li>
+<li><strong>Choose Appropriate Tools</strong>: Use the right tools for the data format you have</li>
+</ol>
+<h3>Examples:</h3>
+<h4>Good Practice - Handling JSON Input:</h4>
+<pre><code class="language-rust">// When input is already JSON, work with it directly
+if let Some(ValueType::Json(json_data)) = &amp;request.params {
+    // Access JSON fields directly
+    let name = json_data.get(&quot;name&quot;)
+        .and_then(|v| v.as_str())
+        .unwrap_or(&quot;default&quot;);
+        
+    // Process with the JSON data
+    // ...
+}
+</code></pre>
+<h4>Good Practice - Handling Map/VMap Input:</h4>
+<pre><code class="language-rust">// When input is a Map, use VMap for type-safe extraction
+if let Some(ValueType::Map(map_data)) = &amp;request.params {
+    let vmap = VMap::from_hashmap(map_data.clone());
+    
+    // Extract typed values
+    let name: String = vmap!(vmap, &quot;name&quot;, String)?;
+    let count: i32 = vmap!(vmap, &quot;count&quot;, Int)?;
+    
+    // Process with the extracted values
+    // ...
+}
+</code></pre>
+<h4>Bad Practice - Unnecessary Conversion:</h4>
+<pre><code class="language-rust">// DON&#39;T DO THIS: Converting JSON to VMap unnecessarily
+if let Some(ValueType::Json(json_data)) = &amp;request.params {
+    // Unnecessary conversion from JSON to VMap
+    let vmap = VMap::from_json(json_data.clone());
+    
+    // Now extracting with VMap macros
+    let name: String = vmap!(vmap, &quot;name&quot;, String)?;
+    
+    // ...
+}
+</code></pre>
+<h2>Context-Aware Logging</h2>
+<p>Always use the context-aware logging system with appropriate log levels:</p>
+<pre><code class="language-rust">// Debug level for detailed information
+debug!(&quot;Processing request details&quot;, &amp;request.request_context, 
+    &quot;key1&quot; =&gt; &amp;value1,
+    &quot;key2&quot; =&gt; &amp;value2
+);
+
+// Info level for normal operational messages
+info!(&quot;Operation completed&quot;, &amp;request.request_context, 
+    &quot;duration_ms&quot; =&gt; duration
+);
+
+// Warning level for concerning but non-critical issues
+warn!(&quot;Resource usage high&quot;, &amp;request.request_context, 
+    &quot;memory_usage&quot; =&gt; memory_mb
+);
+
+// Error level for failures
+error!(&quot;Operation failed&quot;, &amp;request.request_context, 
+    &quot;reason&quot; =&gt; &amp;error_message
+);
+</code></pre>
+<h2>Backward Compatibility</h2>
+<p>For backward compatibility, implement <code>process_request</code> to delegate to <code>handle_request</code>:</p>
+<pre><code class="language-rust">#[allow(deprecated)]
+async fn process_request(&amp;self, request: ServiceRequest) -&gt; Result&lt;ServiceResponse&gt; {
+    // Delegate to handle_request for backward compatibility
+    self.handle_request(request).await
+}
+</code></pre>
+<h2>Implementation Checklist</h2>
+<ul>
+<li><input disabled="" type="checkbox"> <code>handle_request</code> method is simple and delegates to specialized methods</li>
+<li><input disabled="" type="checkbox"> Each operation has a dedicated handler method</li>
+<li><input disabled="" type="checkbox"> Data format conversions are minimized</li>
+<li><input disabled="" type="checkbox"> Context-aware logging is used throughout</li>
+<li><input disabled="" type="checkbox"> Backward compatibility with <code>process_request</code> is maintained</li>
+<li><input disabled="" type="checkbox"> Error handling is consistent and informative</li>
+<li><input disabled="" type="checkbox"> Service metadata accurately lists all supported operations</li>
+<li><input disabled="" type="checkbox"> Subscriptions are set up during service initialization, not during request handling</li>
+<li><input disabled="" type="checkbox"> No <code>ensure_subscriptions</code> checks are performed during request handling</li>
+</ul>
+<h2>Related Documentation</h2>
+<ul>
+<li><a href="context.md">Context System</a> - How to use the context system effectively</li>
+<li><a href="vmap.md">ValueMap (VMap)</a> - Working with structured data using VMap</li>
+<li><a href="logging.md">Logging System</a> - Context-aware logging practices</li>
+<li><a href="lifecycle.md">Service Lifecycle</a> - Understanding the service lifecycle and initialization best practices</li>
+</ul>

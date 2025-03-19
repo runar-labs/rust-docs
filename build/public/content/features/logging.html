@@ -1,0 +1,192 @@
+<h1>Logging System</h1>
+<h2>Overview</h2>
+<p>The Kagi Logging System provides a consistent, context-aware logging interface that works seamlessly in both asynchronous and synchronous code. Through clever use of macros, it eliminates the need to handle <code>.await</code> calls manually while ensuring that contextual information is uniformly included.</p>
+<h2>Key Features</h2>
+<ul>
+<li><strong>Unified API for async/sync contexts</strong>: Same syntax regardless of execution context</li>
+<li><strong>Contextual metadata</strong>: Automatic inclusion of request, node, and network IDs</li>
+<li><strong>Structured logging</strong>: Field-based logging for better filtering and analysis</li>
+<li><strong>ID truncation</strong>: Improved readability while maintaining searchability </li>
+<li><strong>Customizable fields</strong>: Easy addition of custom metadata to log entries</li>
+<li><strong>Log level control</strong>: Fine-grained control over which messages are logged</li>
+</ul>
+<h2>Basic Usage</h2>
+<h3>Simple Logging</h3>
+<p>The logging macros can be used with or without a context:</p>
+<pre><code class="language-rust">// Basic logging with just a message
+info!(&quot;Server started on port 8080&quot;);
+
+// Logging with additional fields
+info!(&quot;Request processed&quot;, &quot;duration_ms&quot; =&gt; 42, &quot;status&quot; =&gt; &quot;success&quot;);
+
+// Logging with a context object that provides additional metadata
+info!(&quot;Handling request&quot;, request_context);
+</code></pre>
+<h3>Context-Aware Logging</h3>
+<p>When a context is provided, relevant metadata is automatically extracted:</p>
+<pre><code class="language-rust">// With a RequestContext, this automatically includes request_id, node_id, etc.
+info!(&quot;Processing request&quot;, context);
+
+// Example output:
+// [INFO] [req:a7f3b] [net:d8e2c] [node:c4f1e] Processing request
+</code></pre>
+<h3>Adding Custom Fields</h3>
+<p>Additional fields can be added as key-value pairs:</p>
+<pre><code class="language-rust">info!(&quot;Request processed&quot;, context, 
+    &quot;duration_ms&quot; =&gt; 42, 
+    &quot;status&quot; =&gt; &quot;success&quot;, 
+    &quot;method&quot; =&gt; &quot;GET&quot;
+);
+
+// Example output:
+// [INFO] [req:a7f3b] [net:d8e2c] [node:c4f1e] [duration_ms:42] [status:success] [method:GET] Request processed
+</code></pre>
+<h2>Log Levels</h2>
+<p>The system provides multiple log level macros:</p>
+<pre><code class="language-rust">// Detailed information for debugging
+debug!(&quot;Connection details&quot;, context, &quot;bytes&quot; =&gt; payload.len());
+
+// Normal operational messages
+info!(&quot;Service started successfully&quot;, context);
+
+// Warning conditions
+warn!(&quot;Retrying failed operation&quot;, context, &quot;attempt&quot; =&gt; retry_count);
+
+// Error conditions
+error!(&quot;Database connection failed&quot;, context, &quot;reason&quot; =&gt; e.to_string());
+</code></pre>
+<h2>Async vs. Sync Contexts</h2>
+<p>The same logging macros work in both async and sync contexts:</p>
+<h3>In Async Functions</h3>
+<pre><code class="language-rust">async fn process_request(request: Request, context: &amp;RequestContext) -&gt; Result&lt;Response&gt; {
+    info!(&quot;Processing request&quot;, context);
+    
+    // Do async work...
+    
+    info!(&quot;Request completed&quot;, context, &quot;duration_ms&quot; =&gt; duration);
+    Ok(response)
+}
+</code></pre>
+<h3>In Sync Functions</h3>
+<pre><code class="language-rust">fn validate_input(input: &amp;str, context: &amp;RequestContext) -&gt; bool {
+    debug!(&quot;Validating input&quot;, context, &quot;length&quot; =&gt; input.len());
+    
+    // Validate synchronously...
+    
+    let valid = input.len() &gt; 0;
+    debug!(&quot;Validation result&quot;, context, &quot;valid&quot; =&gt; valid);
+    valid
+}
+</code></pre>
+<h2>ID Management</h2>
+<p>IDs are automatically truncated for readability while maintaining full searchability:</p>
+<pre><code class="language-rust">// Log display shows truncated IDs (5 chars)
+// [INFO] [req:a7f3b] [net:d8e2c] [node:c4f1e] Processing request
+
+// But full IDs are included in the log entry for filtering
+// Full IDs: request_id_full:a7f3b291c4e5d6 network_id_full:d8e2c3a4b5c6d7 node_id_full:c4f1e2d3b4a5c6
+</code></pre>
+<h2>Logging Flow</h2>
+<pre><code class="language-mermaid">@include &quot;../assets/images/logging-flow.txt&quot;
+</code></pre>
+<p>The diagram above illustrates how the logging system works:</p>
+<ol>
+<li>The logging macro is called with a message and optional context</li>
+<li>The macro determines if it&#39;s in an async or sync context</li>
+<li>In async contexts, the log operation is spawned as a task</li>
+<li>In sync contexts, a synchronous logging method is used</li>
+<li>Contextual metadata is automatically extracted and formatted</li>
+<li>The formatted log entry is written to the configured output</li>
+</ol>
+<h2>Implementation Details</h2>
+<h3>LogContext Trait</h3>
+<p>The system uses a trait to extract metadata from contexts:</p>
+<pre><code class="language-rust">pub trait LogContext {
+    fn request_id(&amp;self) -&gt; Option&lt;&amp;str&gt; { None }
+    fn network_id(&amp;self) -&gt; Option&lt;&amp;str&gt; { None }
+    fn peer_id(&amp;self) -&gt; Option&lt;&amp;str&gt; { None }
+    fn node_id(&amp;self) -&gt; Option&lt;&amp;str&gt; { None }
+}
+
+impl LogContext for RequestContext {
+    // Implementations
+}
+</code></pre>
+<h3>Macro Implementation</h3>
+<p>The macros detect whether they&#39;re in an async context and handle accordingly:</p>
+<pre><code class="language-rust">#[macro_export]
+macro_rules! info {
+    ($message:expr, $context:expr) =&gt; {
+        {
+            let formatted_context = format_context($context);
+            
+            #[cfg(feature = &quot;async&quot;)]
+            {
+                if let Some(runtime) = tokio::runtime::Handle::try_current().ok() {
+                    let _ = runtime.spawn(async {
+                        Logger::global().info($message, formatted_context).await
+                    });
+                } else {
+                    // Fall back to sync logging if not in an async context
+                    Logger::global().info_sync($message, formatted_context);
+                }
+            }
+            
+            #[cfg(not(feature = &quot;async&quot;))]
+            {
+                Logger::global().info_sync($message, formatted_context);
+            }
+        }
+    };
+    
+    // Other variants...
+}
+</code></pre>
+<h2>Best Practices</h2>
+<ol>
+<li><strong>Use appropriate log levels</strong>: Reserve <code>debug!</code> for detailed information and <code>info!</code> for significant events</li>
+<li><strong>Always include context</strong>: Pass relevant context objects to enable proper request tracing</li>
+<li><strong>Add relevant fields</strong>: Include operation-specific data as key-value fields</li>
+<li><strong>Be consistent</strong>: Use similar field names across related operations</li>
+<li><strong>Keep messages concise</strong>: Place details in fields rather than in the message text</li>
+<li><strong>Use structured data</strong>: Avoid embedding JSON or complex data in message strings</li>
+</ol>
+<h2>Configuration</h2>
+<p>Logging can be configured at several levels:</p>
+<h3>Global Configuration</h3>
+<pre><code class="language-rust">// Set global log level
+Logger::global().set_level(LogLevel::Info);
+
+// Configure outputs
+Logger::global().add_output(FileOutput::new(&quot;/var/log/kagi.log&quot;));
+Logger::global().add_output(ConsoleOutput::new());
+
+// Set filter patterns
+Logger::global().add_filter(&quot;req:a7f3b*&quot;, LogLevel::Debug);
+</code></pre>
+<h3>Environment Variables</h3>
+<p>The logging system respects environment variables for dynamic configuration:</p>
+<pre><code># Set default log level
+export KAGI_LOG_LEVEL=info
+
+# Enable debug logs for specific components
+export KAGI_LOG_FILTER=&quot;p2p=debug,node=debug&quot;
+
+# Configure output format
+export KAGI_LOG_FORMAT=&quot;json&quot;
+</code></pre>
+<h2>Integration with Other Systems</h2>
+<p>The logging system integrates with:</p>
+<ul>
+<li><strong>Distributed tracing</strong>: Compatible with OpenTelemetry and Jaeger</li>
+<li><strong>Log aggregation</strong>: Supports structured formats for Elasticsearch/Kibana</li>
+<li><strong>Monitoring systems</strong>: Can emit metrics along with logs</li>
+<li><strong>Cloud environments</strong>: Works with Kubernetes, Docker, and cloud logging services</li>
+</ul>
+<h2>Related Documentation</h2>
+<ul>
+<li><a href="context.md">Context System</a> - How context enables secure and traceable communication</li>
+<li><a href="request_handling.md">Request Handling</a> - Best practices for using logging in request handlers</li>
+<li><a href="lifecycle.md">Service Lifecycle</a> - Understanding service logging during different lifecycle phases</li>
+<li><a href="vmap.md">ValueMap (VMap)</a> - Core abstraction for working with structured data</li>
+</ul>

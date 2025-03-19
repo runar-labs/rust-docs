@@ -1,0 +1,167 @@
+<h1>Kagi Quick Start Guide</h1>
+<p>This guide will help you get started with Kagi by building a simple application.</p>
+<h2>Creating a New Project</h2>
+<p>Start by creating a new Rust project:</p>
+<pre><code class="language-bash">cargo new kagi-hello-world
+cd kagi-hello-world
+</code></pre>
+<p>Add Kagi as a dependency in your <code>Cargo.toml</code> file:</p>
+<pre><code class="language-toml">[dependencies]
+kagi_node = &quot;0.1.0&quot;
+kagi_macros = &quot;0.1.0&quot;
+tokio = { version = &quot;1&quot;, features = [&quot;full&quot;] }
+anyhow = &quot;1.0&quot;
+serde = { version = &quot;1.0&quot;, features = [&quot;derive&quot;] }
+serde_json = &quot;1.0&quot;
+</code></pre>
+<h2>Creating a Simple Service</h2>
+<p>Let&#39;s create a simple &quot;greeting&quot; service. Replace the contents of <code>src/main.rs</code> with the following code:</p>
+<pre><code class="language-rust">use kagi_node::prelude::*;
+use kagi_node::macros::*;
+use anyhow::Result;
+use serde_json::json;
+
+// Define a service
+#[kagi::service(name = &quot;greeter&quot;, description = &quot;A greeting service&quot;)]
+struct GreeterService {
+    greeting_formats: std::collections::HashMap&lt;String, String&gt;,
+}
+
+impl GreeterService {
+    // Constructor
+    fn new() -&gt; Self {
+        let mut greeting_formats = std::collections::HashMap::new();
+        greeting_formats.insert(&quot;standard&quot;.to_string(), &quot;Hello, {}!&quot;.to_string());
+        greeting_formats.insert(&quot;friendly&quot;.to_string(), &quot;Hey there, {}! How are you?&quot;.to_string());
+        greeting_formats.insert(&quot;formal&quot;.to_string(), &quot;Good day, {}. It&#39;s a pleasure to meet you.&quot;.to_string());
+        
+        Self { greeting_formats }
+    }
+    
+    // Action handler for generating greetings
+    #[action(&quot;greet&quot;)]
+    async fn greet(&amp;self, _context: &amp;RequestContext, 
+                  #[param(&quot;name&quot;)] name: String,
+                  #[param(&quot;format&quot;, default = &quot;standard&quot;)] format: String) -&gt; Result&lt;ServiceResponse&gt; {
+        
+        // Get the greeting format (default to standard if not found)
+        let format_template = self.greeting_formats
+            .get(&amp;format)
+            .unwrap_or(&amp;self.greeting_formats[&quot;standard&quot;])
+            .clone();
+        
+        // Generate the greeting
+        let greeting = format_template.replace(&quot;{}&quot;, &amp;name);
+        
+        // Return the response
+        Ok(ServiceResponse {
+            status: ResponseStatus::Success,
+            message: greeting.clone(),
+            data: Some(vmap! {
+                &quot;greeting&quot; =&gt; greeting,
+                &quot;format_used&quot; =&gt; format
+            }),
+        })
+    }
+    
+    // Action handler for adding new greeting formats
+    #[action(&quot;add_format&quot;)]
+    async fn add_format(&amp;self, context: &amp;RequestContext,
+                       #[param(&quot;name&quot;)] name: String,
+                       #[param(&quot;template&quot;)] template: String) -&gt; Result&lt;ServiceResponse&gt; {
+        
+        // Add the new format
+        {
+            let mut formats = self.greeting_formats.clone();
+            formats.insert(name.clone(), template.clone());
+            self.greeting_formats = formats;
+        }
+        
+        // Publish event about the new format
+        let event_data = json!({
+            &quot;format_name&quot;: name,
+            &quot;template&quot;: template,
+            &quot;timestamp&quot;: chrono::Utc::now().to_rfc3339()
+        });
+        
+        context.publish(&quot;greeter/format_added&quot;, event_data).await?;
+        
+        // Return success response
+        Ok(ServiceResponse {
+            status: ResponseStatus::Success,
+            message: format!(&quot;Added new greeting format: {}&quot;, name),
+            data: Some(vmap! {
+                &quot;name&quot; =&gt; name,
+                &quot;template&quot; =&gt; template
+            }),
+        })
+    }
+    
+    // Event handler for demonstration
+    #[subscribe(&quot;greeter/format_added&quot;)]
+    async fn handle_format_added(&amp;self, payload: serde_json::Value) -&gt; Result&lt;()&gt; {
+        if let (Some(name), Some(template)) = (
+            payload.get(&quot;format_name&quot;).and_then(|v| v.as_str()),
+            payload.get(&quot;template&quot;).and_then(|v| v.as_str())
+        ) {
+            println!(&quot;EVENT: New greeting format added: {} with template: {}&quot;, name, template);
+        }
+        Ok(())
+    }
+}
+
+// Application entry point
+#[kagi::main]
+async fn main() -&gt; Result&lt;()&gt; {
+    // Create configuration
+    let config = NodeConfig::new(
+        &quot;greeter_node&quot;,
+        &quot;./data&quot;,
+        &quot;./data/db&quot;,
+    );
+    
+    // Create service
+    let greeter_service = GreeterService::new();
+    
+    // Create and start the node
+    Node::builder()
+        .with_config(config)
+        .add_service(greeter_service)
+        .build_and_run()
+        .await
+}
+</code></pre>
+<h2>Running the Application</h2>
+<p>Build and run your application:</p>
+<pre><code class="language-bash">cargo run
+</code></pre>
+<p>This will start a Kagi node with your greeting service.</p>
+<h2>Interacting with the Service</h2>
+<p>You can interact with your service using the Kagi CLI or by writing a client application.</p>
+<h3>Using the Kagi CLI</h3>
+<p>Install the Kagi CLI if you haven&#39;t already:</p>
+<pre><code class="language-bash">cargo install kagi-cli
+</code></pre>
+<p>Send a request to your service:</p>
+<pre><code class="language-bash">kagi-cli request greeter greet --param name=&quot;World&quot;
+</code></pre>
+<p>You should see a response with the greeting &quot;Hello, World!&quot;.</p>
+<p>Try different formats:</p>
+<pre><code class="language-bash">kagi-cli request greeter greet --param name=&quot;World&quot; --param format=&quot;friendly&quot;
+</code></pre>
+<p>Add a new greeting format:</p>
+<pre><code class="language-bash">kagi-cli request greeter add_format --param name=&quot;enthusiastic&quot; --param template=&quot;WOW!!! {} !!! AMAZING!!!&quot;
+</code></pre>
+<p>Test the new format:</p>
+<pre><code class="language-bash">kagi-cli request greeter greet --param name=&quot;World&quot; --param format=&quot;enthusiastic&quot;
+</code></pre>
+<h2>Next Steps</h2>
+<p>You&#39;ve created a simple Kagi service! Here are some next steps to explore:</p>
+<ul>
+<li>Learn about <a href="../core/architecture">Kagi&#39;s Architecture</a></li>
+<li>Understand <a href="../development/macros">Service Definition</a></li>
+<li>Explore <a href="../services/api#action-handlers">Action Handlers</a></li>
+<li>Set up <a href="../services/api#event-system">Event Subscriptions</a></li>
+<li>Build a <a href="getting-started/example">Complete Example Service</a></li>
+</ul>
+<p>Happy coding with Kagi!</p>
