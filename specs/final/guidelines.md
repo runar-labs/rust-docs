@@ -171,3 +171,7 @@ After each change:
 - Focus on reducing boilerplate while maintaining type safety
 - Create macros that generate code a developer would reasonably write by hand
 - Support both simple and advanced use cases with sensible defaults
+
+> **Status**: Finalized  
+> **Last Updated**: March 19, 2023  
+> **Author**: Runar Team 
