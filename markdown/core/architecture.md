@@ -67,6 +67,11 @@ Base trait implemented by all services:
 - Provides unified lifecycle management (init, start, stop)
 - Standardizes request processing
 - Defines service state transitions
+- Provides service metadata through methods:
+  - `name()`: Returns the service name
+  - `path()`: Returns the service path
+  - `description()`: Returns a description of the service
+  - `version()`: Returns the service version
 
 ### Request Context
 

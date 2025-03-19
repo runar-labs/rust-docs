@@ -43,7 +43,8 @@ Here's a minimal example:
 use anyhow::Result;
 use async_trait::async_trait;
 use kagi_node::services::{
-    AbstractService, ServiceRequest, ServiceResponse, RequestContext, ResponseStatus, ValueType
+    AbstractService, ServiceRequest, ServiceResponse, 
+    RequestContext, ResponseStatus, ValueType, ServiceState
 };
 use std::sync::Mutex;
 
@@ -104,6 +105,14 @@ impl AbstractService for MyService {
         *self.state.lock().unwrap()
     }
 
+    fn description(&self) -> &str {
+        "My custom service"
+    }
+    
+    fn version(&self) -> &str {
+        "1.0.0"
+    }
+
     async fn init(&self, context: &RequestContext) -> Result<()> {
         // Initialize the service
         let mut state = self.state.lock().unwrap();
@@ -125,7 +134,7 @@ impl AbstractService for MyService {
         Ok(())
     }
 
-    async fn process_request(&self, request: ServiceRequest) -> Result<ServiceResponse> {
+    async fn handle_request(&self, request: ServiceRequest) -> Result<ServiceResponse> {
         // Delegate to operation-specific methods
         match request.operation.as_str() {
             "operation1" => self.operation1(&request).await,
@@ -136,10 +145,6 @@ impl AbstractService for MyService {
                 data: None,
             }),
         }
-    }
-
-    fn description(&self) -> String {
-        "My custom service".to_string()
     }
 }
 

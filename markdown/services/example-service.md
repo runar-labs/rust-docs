@@ -86,6 +86,30 @@ struct DataService {
     records: Arc<Mutex<HashMap<String, DataRecord>>>,
 }
 
+// When using the #[service] macro, the AbstractService trait is automatically implemented with:
+/*
+#[async_trait]
+impl AbstractService for DataService {
+    fn name(&self) -> &str {
+        "data"
+    }
+    
+    fn path(&self) -> &str {
+        "data_service"
+    }
+    
+    fn description(&self) -> &str {
+        "Service for managing data records"
+    }
+    
+    fn version(&self) -> &str {
+        "1.0.0"
+    }
+    
+    // Other trait methods...
+}
+*/
+
 impl DataService {
     pub fn new() -> Self {
         DataService {
