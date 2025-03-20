@@ -166,3 +166,234 @@ The macro implementations have been updated to replace all "kagi" references wit
 - Changed macros to use crate-relative paths for better modularity
 - Fixed service macro to correctly handle path prefixing
 - Updated service metadata handling to match the new architecture 
+
+### Architectural Consistency Enforcement
+
+- ✅ Identified architectural violation: Direct service registry access
+- ✅ Updated API test examples to demonstrate proper patterns
+- ✅ Added documentation on proper service registry access patterns in guidelines.md
+- ✅ Added API consistency requirements to macro testing implementation plan
+- ✅ Fixed end-to-end tests to use proper request-based API patterns
+- ✅ Identified additional violation: Direct service registration
+- ✅ Updated rust-node-api-test/src/main.rs to use proper service registration
+- ✅ Updated direct_api_test.rs to use proper service registration
+- ✅ Added documentation on proper service registration patterns in guidelines.md
+- ✅ Create list of common architectural violations to check for
+- ✅ Scan codebase for additional instances of direct registry access:
+  - ✅ Tests
+  - ✅ Node implementation
+  - ✅ Example code
+    - ✅ Updated files:
+      - ✅ rust-examples/gateway_example.rs
+      - ✅ rust-examples/macros_node_example.rs
+      - ✅ rust-examples/rest_api_example.rs
+      - ✅ rust-apps/invoice-demo/src/main.rs
+      - ✅ rust-macros-tests/examples/basic_node_example.rs
+- ✅ Update all occurrences to use request-based API pattern
+- ⬜ Add automated testing to verify architectural pattern compliance 
+
+## Progress Summary
+
+### Recent Accomplishments
+
+1. ✅ Fixed service registration in the `direct_api_test.rs` file
+   - Updated to use `node.add_service()` instead of `node.register_service()`
+   - Verified test is now correctly using proper service registration pattern
+
+2. ✅ Fixed field initialization in minimal version tests
+   - Updated `test_service` macro to handle field initializers properly
+   - Fixed struct definitions with default values for fields
+   - Made the macro properly handle paths with or without leading slashes
+
+3. ✅ Fixed architectural violations in example files
+   - Updated all example files to use `node.add_service()` instead of `node.register_service()`
+   - Renamed all imports from `kagi_*` to `runar_*` in these files
+   - Ensured consistent API usage across all examples
+   - Files updated:
+     - ✅ rust-examples/gateway_example.rs
+     - ✅ rust-examples/macros_node_example.rs
+     - ✅ rust-examples/rest_api_example.rs
+     - ✅ rust-apps/invoice-demo/src/main.rs
+     - ✅ rust-macros-tests/examples/basic_node_example.rs
+
+### Next Steps Priority
+
+1. ✅ Create proper examples that follow all architectural guidelines
+   - Added examples that demonstrate proper service registry access
+   - Added examples showing correct event handling patterns
+   - Ensured examples include error handling best practices
+
+2. ⬜ Create additional tests to verify architectural compliance
+   - Add tests that verify services are registered correctly
+   - Add tests that verify service requests follow the proper pattern
+
+3. ⬜ Document architectural guidelines more thoroughly
+   - Create a comprehensive guide on service registration best practices
+   - Add examples of correct and incorrect usage for each architectural pattern
+
+The focus should remain on ensuring that all examples and tests follow the architectural guidelines to promote consistent usage patterns across the codebase and in client implementations.
+
+## Migration Guide
+
+### Common Migration Patterns
+
+#### 1. Updating Service Registration
+
+**Old pattern (deprecated):**
+```rust
+// This approach is deprecated and should be avoided
+let service = MyService::new();
+node.register_service(service).await?;
+```
+
+**New pattern:**
+```rust
+// Use add_service instead of register_service
+let service = MyService::new();
+node.add_service(service).await?;
+```
+
+#### 2. Updating Direct API Access
+
+**Old pattern (deprecated):**
+```rust
+// Directly accessing service registry methods is deprecated
+let services = node.registry.get_services().await?;
+let my_service = node.registry.get_service("my_service").await?;
+```
+
+**New pattern:**
+```rust
+// Use the request-based API pattern
+let response = node.request(
+    "internal/registry/list_services",
+    ValueType::Null,
+).await?;
+
+// Extract services using vmap! for clean parameter extraction with defaults
+let services = vmap!(response.data, "services" => Vec::<String>::new());
+```
+
+#### 3. Properly Initializing Service Fields
+
+**Old pattern (deprecated):**
+```rust
+#[service(name = "my_service", description = "My service", version = "1.0")]
+pub struct MyService {
+    data: Arc<Mutex<Vec<String>>>, // Uninitialized field
+    counter: u32, // Uninitialized field
+}
+
+impl MyService {
+    pub fn new() -> Self {
+        // Manual initialization in new method
+        Self {
+            data: Arc::new(Mutex::new(Vec::new())),
+            counter: 0,
+        }
+    }
+}
+```
+
+**New pattern:**
+```rust
+#[service(name = "my_service", description = "My service", version = "1.0")]
+pub struct MyService {
+    // Initialized fields directly in the struct definition
+    data: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new())),
+    counter: u32 = 0,
+}
+```
+
+#### 4. Using Proper Event System
+
+**Old pattern (deprecated):**
+```rust
+// Direct event emitting without proper context
+self.emit_event("service/event", data).await?;
+```
+
+**New pattern:**
+```rust
+// Use the request context for publishing events
+request.context.publish(
+    "service/events/created", 
+    ValueType::Json(json!({ "id": "123", "timestamp": SystemTime::now() }))
+).await?;
+```
+
+#### 5. Using Action Handlers
+
+**Old pattern (deprecated):**
+```rust
+// Manual operation matching in handle_request
+async fn handle_request(&self, request: ServiceRequest) -> Result<ServiceResponse, anyhow::Error> {
+    match request.operation.as_str() {
+        "do_something" => self.do_something(request).await,
+        _ => Err(anyhow::anyhow!("Unknown operation")),
+    }
+}
+
+async fn do_something(&self, request: ServiceRequest) -> Result<ServiceResponse, anyhow::Error> {
+    // Implementation...
+}
+```
+
+**New pattern:**
+```rust
+// Use the action! macro for operation handlers
+#[action]
+async fn do_something(&self, request: ServiceRequest) -> Result<ServiceResponse, anyhow::Error> {
+    // Implementation...
+}
+```
+
+#### 6. Event Subscriptions
+
+**Old pattern (deprecated):**
+```rust
+// Manual event subscription setup
+async fn init(&mut self, context: &RequestContext) -> Result<(), anyhow::Error> {
+    let self_clone = self.clone();
+    context.subscribe("topic/event", move |payload| {
+        let service = self_clone.clone();
+        Box::pin(async move {
+            service.handle_event(payload).await
+        })
+    }).await?;
+    Ok(())
+}
+
+async fn handle_event(&self, payload: ValueType) -> Result<(), anyhow::Error> {
+    // Implementation...
+}
+```
+
+**New pattern:**
+```rust
+// Use the sub! macro for event subscriptions
+#[sub(topic = "topic/event")]
+async fn handle_event(&self, payload: ValueType, context: &RequestContext) -> Result<(), anyhow::Error> {
+    // Implementation...
+}
+```
+
+### Checking for Compliance
+
+You can check for compliance with Runar's architectural patterns by:
+
+1. Running Clippy lints specific to the Runar codebase:
+   ```bash
+   cargo clippy --all
+   ```
+
+2. Reviewing service implementations against the examples provided in the `rust-examples` directory.
+
+3. Using the log output with LLMs to identify architectural violations.
+
+### Examples
+
+For complete working examples that demonstrate proper architectural patterns, please see:
+
+- [Node API Example](./rust-examples/examples/node_api_example.rs) - Demonstrates proper service implementation and registration using the AbstractService trait
+- [Macro Example](./rust-examples/examples/macro_example.rs) - Demonstrates proper service implementation using macros 

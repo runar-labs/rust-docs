@@ -1,6 +1,6 @@
-# Kagi Node System Architecture
+# Runar Node System Architecture
 
-This document describes the high-level architecture of the Kagi node system, including core components, data flow patterns, design principles, and implementation guidelines.
+This document describes the high-level architecture of the Runar node system, including core components, data flow patterns, design principles, and implementation guidelines.
 
 ## Table of Contents
 
@@ -33,10 +33,14 @@ This document describes the high-level architecture of the Kagi node system, inc
    - [Authentication](#authentication)
    - [Authorization](#authorization)
    - [Secure Communication](#secure-communication)
+8. [End-to-End Examples](#end-to-end-examples)
+   - [Complete Application Example](#complete-application-example)
+   - [Proper Architectural Patterns](#proper-architectural-patterns)
+   - [Service Communication Flow](#service-communication-flow)
 
 ## Introduction
 
-The Kagi node system follows a modular, service-oriented architecture designed for flexibility, extensibility, and robust operation in distributed environments. This document provides an overview of the key components and principles governing the system design.
+The Runar node system follows a modular, service-oriented architecture designed for flexibility, extensibility, and robust operation in distributed environments. This document provides an overview of the key components and principles governing the system design.
 
 ## Core Components
 
@@ -110,7 +114,7 @@ Client-server communication:
 
 ## Data Flow Patterns
 
-The Kagi node system follows two primary data flow patterns:
+The Runar node system follows two primary data flow patterns:
 
 ### Request/Response Pattern
 
@@ -221,7 +225,7 @@ The Kagi node system follows two primary data flow patterns:
 
 ## Service Lifecycle Management
 
-The following diagram illustrates the lifecycle of a service in the Kagi node system:
+The following diagram illustrates the lifecycle of a service in the Runar node system:
 
 ```mermaid
 sequenceDiagram
@@ -286,7 +290,7 @@ flowchart TD
 
 ### Service Discovery
 
-The Kagi node system implements a comprehensive service discovery mechanism across the P2P network:
+The Runar node system implements a comprehensive service discovery mechanism across the P2P network:
 
 - **Service Advertisement**: Services are automatically advertised to connected peers when registered
 - **Remote Service Discovery**: Services are discovered when connecting to peers in the P2P network
@@ -306,7 +310,7 @@ if service_available {
 
 ### Peer-to-Peer Communication
 
-The P2P layer in Kagi nodes implements the following features:
+The P2P layer in Runar nodes implements the following features:
 
 - **Transport Protocol**: QUIC-based transport for reliable, secure, and multiplexed communication
 - **Peer Identification**: Peers are identified by a PeerId derived from their public key
@@ -318,7 +322,7 @@ The P2P layer in Kagi nodes implements the following features:
 
 ### Network Configuration
 
-P2P functionality in Kagi nodes is configured through the Node configuration:
+P2P functionality in Runar nodes is configured through the Node configuration:
 
 ```rust
 // Example P2P configuration
@@ -358,7 +362,259 @@ let mut node = Node::new(NodeConfig {
 - Service-to-service communication within a node is memory-safe
 - External communication channels should be properly secured
 
+## End-to-End Examples
 
-## Examples
+This section provides complete examples showcasing how the architectural patterns work together in real applications.
 
-This section will be expanded with practical examples.
+### Complete Application Example
+
+Below is a complete example demonstrating proper service implementation, registration, and interaction:
+
+```rust
+use runar_macros::{action, service, subscribe};
+use runar_node::{
+    anyhow::{self, Result},
+    async_trait::async_trait,
+    node::NodeConfig,
+    Node, ValueType, vmap,
+};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+// Define data types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Task {
+    id: String,
+    title: String,
+    completed: bool,
+}
+
+// Define the task service
+#[service(name = "task_service")]
+struct TaskService {
+    tasks: Arc<RwLock<HashMap<String, Task>>>,
+}
+
+// Constructor and methods
+impl TaskService {
+    fn new() -> Self {
+        Self {
+            tasks: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+    
+    // Action handler for creating a task
+    #[action(name = "create_task")]
+    async fn create_task(&self, context: &RequestContext, title: String) -> Result<Task> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let task = Task {
+            id: id.clone(),
+            title,
+            completed: false,
+        };
+        
+        // Store the task
+        let mut tasks = self.tasks.write().await;
+        tasks.insert(id.clone(), task.clone());
+        
+        // Publish event about task creation
+        let event_data = vmap! {
+            "task_id" => task.id.clone(),
+            "title" => task.title.clone()
+        };
+        context.publish("tasks/created", event_data).await?;
+        
+        Ok(task)
+    }
+    
+    // Action handler for completing a task
+    #[action(name = "complete_task")]
+    async fn complete_task(&self, context: &RequestContext, id: String) -> Result<Task> {
+        let mut tasks = self.tasks.write().await;
+        let task = tasks.get_mut(&id)
+            .ok_or_else(|| anyhow::anyhow!("Task not found"))?;
+            
+        task.completed = true;
+        
+        // Publish event about task completion
+        let event_data = vmap! {
+            "task_id" => task.id.clone()
+        };
+        context.publish("tasks/completed", event_data).await?;
+        
+        Ok(task.clone())
+    }
+    
+    // Action handler for listing tasks
+    #[action(name = "list_tasks")]
+    async fn list_tasks(&self) -> Result<Vec<Task>> {
+        let tasks = self.tasks.read().await;
+        Ok(tasks.values().cloned().collect())
+    }
+}
+
+// Define an analytics service
+#[service(name = "analytics_service")]
+struct AnalyticsService {
+    task_counts: Arc<RwLock<HashMap<String, u32>>>,
+}
+
+impl AnalyticsService {
+    fn new() -> Self {
+        Self {
+            task_counts: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+    
+    // Subscribe to task creation events
+    #[subscribe(topic = "tasks/created")]
+    async fn on_task_created(&mut self, payload: ValueType) -> Result<()> {
+        let task_id = vmap!(payload, "task_id" => String::new());
+        let title = vmap!(payload, "title" => String::new());
+        
+        println!("Analytics: New task created: {} - {}", task_id, title);
+        
+        // Update statistics
+        let mut counts = self.task_counts.write().await;
+        *counts.entry("created".to_string()).or_insert(0) += 1;
+        
+        Ok(())
+    }
+    
+    // Subscribe to task completion events
+    #[subscribe(topic = "tasks/completed")]
+    async fn on_task_completed(&mut self, payload: ValueType) -> Result<()> {
+        let task_id = vmap!(payload, "task_id" => String::new());
+        
+        println!("Analytics: Task completed: {}", task_id);
+        
+        // Update statistics
+        let mut counts = self.task_counts.write().await;
+        *counts.entry("completed".to_string()).or_insert(0) += 1;
+        
+        Ok(())
+    }
+    
+    // Action handler for getting task statistics
+    #[action(name = "get_stats")]
+    async fn get_stats(&self) -> Result<HashMap<String, u32>> {
+        let counts = self.task_counts.read().await;
+        Ok(counts.clone())
+    }
+}
+
+// Main application
+#[tokio::main]
+async fn main() -> Result<()> {
+    // 1. Create node with configuration
+    let config = NodeConfig::default()
+        .with_name("task_manager")
+        .with_description("Task Management Application");
+        
+    let mut node = Node::new(config).await?;
+    
+    // 2. Initialize node
+    node.init().await?;
+    
+    // 3. Create services
+    let task_service = TaskService::new();
+    let analytics_service = AnalyticsService::new();
+    
+    // 4. Register services with the node using the proper add_service method
+    node.add_service(task_service).await?;
+    node.add_service(analytics_service).await?;
+    
+    // 5. Start the node to activate all services
+    node.start().await?;
+    
+    // 6. Use services through the request-based API
+    
+    // Create a new task
+    let create_params = vmap! {
+        "title" => "Learn Runar Architecture"
+    };
+    let create_result = node.request("task_service/create_task", create_params).await?;
+    
+    // Extract task ID using vmap! for clean extraction with defaults
+    let task_id = vmap!(create_result.data, "id" => String::new());
+    println!("Created task with ID: {}", task_id);
+    
+    // Complete the task
+    let complete_params = vmap! {
+        "id" => task_id
+    };
+    let complete_result = node.request("task_service/complete_task", complete_params).await?;
+    println!("Task completed: {:?}", complete_result);
+    
+    // List all tasks
+    let list_result = node.request("task_service/list_tasks", ValueType::Null).await?;
+    println!("All tasks: {:?}", list_result);
+    
+    // Get analytics stats
+    let stats_result = node.request("analytics_service/get_stats", ValueType::Null).await?;
+    println!("Task statistics: {:?}", stats_result);
+    
+    // 7. Clean shutdown
+    node.stop().await?;
+    
+    Ok(())
+}
+```
+
+### Proper Architectural Patterns
+
+This example demonstrates all the critical architectural patterns:
+
+1. **Service Definition**: Services are defined with clear responsibilities (TaskService, AnalyticsService)
+2. **Service Registration**: Using `node.add_service()` to properly register services
+3. **Request-based API**: Using `node.request()` for all service interactions
+4. **Event-driven Communication**: Services communicate via events for loose coupling
+5. **Clean Parameter Extraction**: Using `vmap!` macro for safe extraction with defaults
+6. **Proper Lifecycle Management**: Following create → init → start → use → stop
+
+### Service Communication Flow
+
+The sequence diagram below illustrates the complete communication flow in our example:
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Node
+    participant TaskService
+    participant AnalyticsService
+    
+    Client->>Node: Create Node
+    Node->>TaskService: Initialize
+    Node->>AnalyticsService: Initialize
+    AnalyticsService->>Node: Subscribe to "tasks/created"
+    AnalyticsService->>Node: Subscribe to "tasks/completed"
+    Client->>Node: Start Node
+    Client->>Node: request("task_service/create_task", params)
+    Node->>TaskService: route request to create_task
+    TaskService->>Node: publish("tasks/created", data)
+    Node->>AnalyticsService: Notify about created task
+    AnalyticsService->>AnalyticsService: Update stats
+    TaskService->>Node: Return created task
+    Node->>Client: Return response
+    
+    Client->>Node: request("task_service/complete_task", params)
+    Node->>TaskService: route request to complete_task
+    TaskService->>Node: publish("tasks/completed", data)
+    Node->>AnalyticsService: Notify about completed task
+    AnalyticsService->>AnalyticsService: Update stats
+    TaskService->>Node: Return updated task
+    Node->>Client: Return response
+    
+    Client->>Node: request("analytics_service/get_stats", null)
+    Node->>AnalyticsService: route request to get_stats
+    AnalyticsService->>Node: Return statistics
+    Node->>Client: Return response
+    
+    Client->>Node: Stop Node
+    Node->>TaskService: Stop
+    Node->>AnalyticsService: Stop
+```
+
+This comprehensive example demonstrates how all the architectural elements work together in a cohesive application, following the recommended patterns and guidelines.

@@ -4,15 +4,15 @@
 
 When fixing issues or implementing new features, follow these steps:
 
-- Before making any change, always check the design docs in the `docs/` folder
-- Create a detailed plan and save it in a file under `spec/under_construction/`
+- Before making any change, always check the design docs in the `rust-docs/markdown/` folder
+- Create a detailed plan and save it in a file under `rust-docs/spec/under_construction/`
 - As you progress, keep the detailed plan up to date with:
   - Progress
   - Issues encountered
   - Solutions implemented
   - Design decisions made along the way
 - At the end, use this plan as input for documentation updates
-- Once all tests pass and documentation is updated, this file can be removed, signaling the work is complete
+- Once all tests pass and documentation is updated, this file can be moved to `rust-docs/spec/completed/`, signaling the work is complete
 
 ## Code Quality Guidelines
 
@@ -34,6 +34,13 @@ When fixing issues or implementing new features, follow these steps:
 - Write documentation comments for public APIs
 - Use lifetimes judiciously - keep them simple when possible
 - Apply clippy lints to catch common mistakes and anti-patterns
+
+## Core Architectural Principles
+
+1. **Service Boundaries**: Services should be well-defined with clear boundaries
+2. **API-First Approach**: All service interactions should go through documented API interfaces
+3. **Request-Based Communication**: Use request/response patterns for service interactions
+4. **Event-Driven Design**: Use publish/subscribe for event notifications
 
 ## API Design Best Practices
 
@@ -57,6 +64,114 @@ When fixing issues or implementing new features, follow these steps:
   ```
 - Provide helpful defaults and fallbacks in your API to reduce error handling burden
 - Design for both simple and advanced use cases
+
+### Service Registration
+
+When registering services with the node, use the provided high-level methods rather than accessing the service registry directly:
+
+```rust
+// ❌ INCORRECT: Direct service registry access (architecture violation)
+node.service_registry().register_service(service).await?;
+node.register_service(&mut test_service).await?;
+
+// ✅ CORRECT: Using the proper registration method
+node.add_service(service).await?;
+```
+
+This approach:
+- Maintains proper encapsulation of node internals
+- Ensures consistent handling of service registration
+- Lets the Node handle threading and lifecycle management
+- Follows the established API design patterns
+
+### Service Registry Access
+
+When interacting with the service registry, always use the request-based API:
+
+```rust
+// ❌ INCORRECT: Directly accessing service registry
+let registry = node.service_registry_arc();
+let services = registry.list_services().await?;
+
+// ❌ INCORRECT: Using service_registry method
+let registry = node.service_registry();
+let service = registry.get_service("some_service").await?;
+
+// ✅ CORRECT: Using the request-based API with vmap! extraction
+let response = node.request(
+    "internal/registry/list_services", 
+    ValueType::Null
+).await?;
+
+// Use vmap! to extract services with a default empty Vec if not found
+let services = vmap!(response.data, "services" => Vec::<String>::new());
+
+// ✅ CORRECT: For getting a specific service
+let params = vmap!{"name" => "some_service"};
+let response = node.request("internal/registry/get_service", Some(params)).await?;
+```
+
+This approach:
+- Maintains proper service boundary separation
+- Uses the vmap! macro for cleaner parameter extraction
+- Provides default values to handle missing data gracefully
+- Follows the established API design patterns
+
+### Data Extraction
+
+Clean data extraction is critical for maintainable code:
+
+```rust
+// ❌ INCORRECT: Manual parsing of response data
+if let Some(ValueType::Object(obj)) = response.data {
+    if let Some(ValueType::String(name)) = obj.get("name") {
+        // Use name
+    }
+}
+
+// ✅ CORRECT: Using vmap! macro for clean parameter extraction
+let data = response.data.unwrap();
+let service_name = vmap!(data, "name" => "");
+```
+
+### Service Interactions
+
+Always use the request-based API for service interactions:
+
+```rust
+// ❌ INCORRECT: Directly calling service methods
+let registry = node.service_registry_arc();
+let service = registry.get_service("test_service").await?;
+let result = service.handle_request(request).await?;
+
+// ✅ CORRECT: Using request-based API
+let result = node.request("test_service", "operation", Some(params)).await?;
+```
+
+### Event Publishing and Subscription
+
+Use the node's publish method and context's subscribe method:
+
+```rust
+// ❌ INCORRECT: Direct event publishing
+let registry = node.service_registry_arc();
+registry.publish_event("topic", data).await?;
+
+// ✅ CORRECT: Using node's publish method
+node.publish("service/event_topic", event_data).await?;
+
+// ✅ CORRECT: Service subscription
+async fn init(&mut self, context: &RequestContext) -> Result<()> {
+    context.subscribe("topic", move |payload| {
+        Box::pin(async move {
+            // Handle event
+            Ok(())
+        })
+    }).await?;
+    
+    Ok(())
+}
+```
 
 ## Service Implementation Best Practices
 
@@ -209,6 +324,39 @@ async fn handle_update(&self, request: ServiceRequest) -> Result<ServiceResponse
     
     // Rest of the implementation
     // ...
+}
+```
+
+## Implementation Examples
+
+### Service Registration Example
+
+```rust
+// Creating a node
+let mut node = Node::new(config).await?;
+
+// Creating service instances
+let counter_service = CounterService::new("counter");
+let event_service = EventService::new("events");
+
+// Correct registration
+node.add_service(counter_service).await?;
+node.add_service(event_service).await?;
+
+// Start the node
+node.start().await?;
+```
+
+### Service Request Example
+
+```rust
+// Increment counter
+let params = vmap!{"amount" => 5};
+let result = node.request("counter", "increment", Some(params)).await?;
+
+// Process result
+if let Some(ValueType::Number(value)) = result.data {
+    println!("New counter value: {}", value);
 }
 ```
 
@@ -484,6 +632,34 @@ async fn test_integration_flow() {
 }
 ```
 
+## Testing Best Practices
+
+1. Test services in isolation with mocked dependencies
+2. Use the request-based API in integration tests
+3. Verify service boundaries are maintained
+4. Test both success and error paths
+
+```rust
+#[tokio::test]
+async fn test_counter_service() -> Result<()> {
+    // Setup
+    let mut node = setup_test_node().await?;
+    node.add_service(CounterService::new("counter")).await?;
+    node.start().await?;
+    
+    // Test increment
+    let params = vmap!{"amount" => 5};
+    let result = node.request("counter", "increment", Some(params)).await?;
+    assert_eq!(result.data, Some(ValueType::Number(5.0)));
+    
+    // Test get value
+    let result = node.request("counter", "get_value", None).await?;
+    assert_eq!(result.data, Some(ValueType::Number(5.0)));
+    
+    Ok(())
+}
+```
+
 ## Verification and Documentation
 
 After each change:
@@ -578,6 +754,26 @@ After each change:
 - Create macros that generate code a developer would reasonably write by hand
 - Support both simple and advanced use cases with sensible defaults
 
-> **Status**: Finalized  
-> **Last Updated**: March 19, 2023  
-> **Author**: Runar Team 
+## Documentation Best Practices
+
+- Always check for existing documentation before creating new files:
+  - Look in `rust-docs/specs/under_construction/` for ongoing work
+  - Check `rust-docs/markdown/` for existing design docs
+  - Review `rust-docs/specs/completed/` for previously resolved issues
+- **Do not create new documentation files** unless absolutely necessary
+- Use the existing documentation structure and plans provided:
+  - Update `runar_migration_mission.md` for migration-related changes
+  - Add to existing guidelines rather than creating new guideline documents
+  - Append to existing spec documents rather than fragmenting information
+- Always get explicit confirmation before creating any new documentation file
+- Keep documentation in its designated locations:
+  - Specs: `rust-docs/specs/`
+  - Design docs: `rust-docs/markdown/`
+  - Tutorials: `rust-docs/tutorials/`
+- When updating docs, focus on:
+  - Adding clear examples matching actual implemented API patterns
+  - Removing obsolete information
+  - Consolidating related information
+  - Maintaining consistent formatting and style
+
+WHEN UPDATING THIS FILE DO NOT MOVE IT, LEAVE WHRE IT IS AT rust-docs/specs/guidelines.md

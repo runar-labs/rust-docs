@@ -11,21 +11,47 @@ The `runar_macros` crate provides procedural macros that simplify service develo
 3. Test both the compilation and runtime behavior of generated code
 4. Ensure tests match the latest API patterns from the documentation
 
-## Current Status
+## Current Status and Issues
 
-- ❌ `src/examples/` contains files but they're not connected to any testing framework
-- ❌ `end_to_end_test.rs` has only a placeholder test that always passes
-- ❌ `example_expansion.rs` has commented-out code examples
-- ❌ No actual testing of macro behavior in runtime environments
-- ❌ Even the official tests in the `rust-macros/tests` directory are broken with the same issues
+After thorough investigation, we've identified several critical issues with the macros and testing framework:
+
+### API Incompatibility Issues
+
+1. **API Mismatch**: The macro implementations are generating code that doesn't match the current API:
+   - The error `method 'version' is not a member of trait 'runar_node::services::AbstractService'` indicates the service macro is generating a `version()` method that isn't part of the trait.
+   - Errors about missing `action_registry` and `subscription_registry` indicate the macros are generating code that assumes these global items exist in the crate root, but they don't.
+
+2. **ServiceMetadata Constructor Change**:
+   ```rust
+   // Old API (assumed by macros):
+   ServiceMetadata::new()
+   
+   // Current API:
+   ServiceMetadata::new(operations: Vec<String>, description: String)
+   ```
+
+3. **Missing Trait Methods**:
+   - Macros generate calls to `service_name()`, `service_path()`, etc., but these methods no longer exist
+   - The current API directly implements methods on `AbstractService`: `name()`, `path()`, etc.
+
+4. **Self Use in Static Context**: The errors about `can't use 'Self' from outer item` indicate the macros are generating code that tries to reference `Self` in a static context, which isn't allowed in Rust.
+
+5. **Service Response Structure Change**:
+   ```rust
+   // Old API (used in tests):
+   result.success, result.data.unwrap()["result"]
+   
+   // Current API:
+   result.status, result.data
+   ```
+
+### Module Path Issues
+
+- **Module Path Mismatch**: The scripts were trying to use incorrect module paths when running `cargo expand`
+  - Original paths: `examples::service_macro_example`
+  - Correct paths: `examples::service_macro` (matching the actual module structure)
 
 ## New Implementation Approach
-
-Upon investigation, we've discovered that the macros have likely undergone significant changes that have broken even the existing tests. Both our attempts and the existing tests face the same issues:
-
-1. **API Discrepancies**: The current macros expect a different structure than what the documentation describes.
-2. **Missing Components**: The macros reference crate modules like `action_registry` and `subscription_registry` that don't exist at the expected locations.
-3. **Method Mismatches**: The macros are trying to use methods like `version` that aren't part of the current `AbstractService` trait.
 
 Given these challenges, we need to take a much more incremental approach:
 
@@ -53,7 +79,27 @@ Given these challenges, we need to take a much more incremental approach:
    - Focus on structure verification rather than runtime behavior
    - Add checks for known macro features
 
-### Phase 3: Documentation Update
+### Phase 3: Macro Fix Implementation
+
+1. **Update Service Macro Implementation**:
+   - Modify the generated implementation to directly use the `AbstractService` trait methods
+   - Fix the `ServiceMetadata::new()` call to provide the required parameters
+   - Eliminate references to the `ServiceInfo` trait which is now deprecated
+   - Fix any compiler issues related to `version` method
+
+2. **Update Registry Access**:
+   - Determine the correct way to access the registries for actions and subscriptions
+   - Modify the macros to use the proper imports and paths
+
+3. **Fix Static Context Issues**:
+   - Restructure the generated code to avoid using `Self` in static contexts
+   - Ensure all references to service methods are called through proper instances
+
+4. **Update Test Framework**:
+   - Update test assertions to match the current `ServiceResponse` structure
+   - Fix any test utilities that rely on the old API format
+
+### Phase 4: Documentation Update
 
 1. **Update all documentation to match reality**:
    - Revise all documentation to match the actual API
@@ -64,14 +110,14 @@ Given these challenges, we need to take a much more incremental approach:
 
 ### Example Expansion Testing
 
-We'll create a simple script to run macro expansion and verify it matches expected patterns:
+We'll use an improved script to run macro expansion and verify it matches expected patterns:
 
 ```bash
 #!/bin/bash
 # Script: verify_expansion.sh
 
-# Run cargo-expand on example file
-EXPANDED=$(cargo expand --features full_test --package runar-macros-tests --file src/examples/service_macro.rs)
+# Run cargo-expand on example file (with corrected module path)
+EXPANDED=$(cargo expand --features full_test --package runar-macros-tests examples::service_macro)
 
 # Check for expected patterns
 if echo "$EXPANDED" | grep -q "impl runar_common::ServiceInfo"; then
@@ -103,6 +149,24 @@ fn test_macro_compiles() {
 }
 ```
 
+## Implementation Priority
+
+1. **Service Macro (Highest Priority)**:
+   - Fix the `AbstractService` trait implementation
+   - Update the `ServiceMetadata::new()` call
+   - Fix the `version()` method issue
+
+2. **Action Macro**:
+   - Update the registry access
+   - Fix the return value wrapping for action methods
+
+3. **Subscribe Macro**:
+   - Fix subscription setup and handler registration
+
+4. **Update Test Framework**:
+   - Fix all test assertions and utilities
+   - Update example code to match the current API
+
 ## Expected Challenges
 
 1. **API Flux**: The APIs appear to be in flux, so tests may break as the codebase evolves
@@ -118,25 +182,77 @@ fn test_macro_compiles() {
 
 ## Progress Tracking
 
-I'll update this document with progress as implementation proceeds:
-
-- [ ] Phase 1: Basic Expansion Testing
-  - [ ] Set up cargo-expand testing for each macro
-  - [ ] Document the actual expansion patterns
-  - [ ] Identify differences from expected behavior
+- [x] Phase 1: Basic Expansion Testing
+  - [x] Set up cargo-expand testing for each macro
+  - [x] Document the actual expansion patterns
+  - [x] Identify differences from expected behavior
+  - [x] Update the `check_expansions.sh` script to correctly target modules
+  - [x] Fix module paths in examples to match expected export format
   
-- [ ] Phase 2: Minimal Compilation Tests
-  - [ ] Create tests that verify the macros compile
-  - [ ] Add basic verification of expanded code structure
-  - [ ] Document any limitations or issues discovered
+- [x] Phase 2: Minimal Compilation Tests
+  - [x] Create tests that verify the macros compile
+  - [x] Add basic verification of expanded code structure
+  - [x] Document limitations and issues discovered
+  - [x] Fix issues with struct field initializers in test_service macro
+  - [ ] Add negative test cases to verify compile-time errors
 
-- [ ] Phase 3: Documentation Update
-  - [ ] Update all documentation to match the current API
+- [x] Phase 3: Fixing API Violations
+  - [x] Update architectural guidelines with proper API usage patterns
+  - [x] Document proper service registry access patterns
+  - [x] Document proper service registration patterns
+  - [x] Fix minimal version tests for field initializers
+  - [x] Update end-to-end test to use proper API patterns
+  - [x] Fix direct API test to use proper service registration
+  - [x] Check and fix remaining tests for architectural violations
+  - [ ] Fix `version()` method in service macro
+  - [ ] Fix missing `action_registry` and `subscription_registry` references
+  - [ ] Fix `Self` usage in static contexts
+  
+- [ ] Phase 4: Documentation and CI Integration
   - [ ] Create new examples that work with the current implementation
   - [ ] Document any known issues or limitations
+  - [ ] Add a step to run the minimal compilation tests in CI
+  - [ ] Add a step to verify macro expansions with cargo-expand in CI
+  - [ ] Add a step to run full tests with the `full_test` feature in CI
 
 ## Next Steps
 
-1. Set up expansion testing for each macro type
-2. Create a minimal set of tests that just verify compilation
-3. Document the actual behavior of the macros 
+1. ✅ Update end-to-end test to use proper API patterns
+2. ✅ Fix direct API test to use proper service registration
+3. ✅ Update and fix remaining tests for architectural violations
+   - ✅ Files with register_service updated:
+     - ✅ rust-examples/gateway_example.rs
+     - ✅ rust-examples/macros_node_example.rs
+     - ✅ rust-examples/rest_api_example.rs
+     - ✅ rust-apps/invoice-demo/src/main.rs
+     - ✅ rust-macros-tests/examples/basic_node_example.rs
+4. ⬜ Examine the `AbstractService` trait to understand the current structure
+5. ⬜ Update the service macro to match the current trait requirements
+6. ⬜ Fix the registry references in action and subscribe macros
+7. ⬜ Create simplified test cases to verify fixes
+8. ⬜ Update all tests to use the correct API patterns
+9. ⬜ Create new examples that follow all guidelines
+10. ⬜ Finalize documentation
+
+## API Consistency Requirements
+
+Tests must follow the same API patterns used in production code:
+
+1. **Service Registry Access**:
+   - ❌ DO NOT use `node.service_registry_arc()` (bypasses service boundaries)
+   - ✅ DO use `node.request("internal/registry/list_services", ...)` (proper API pattern)
+   - ✅ Extract data with `vmap!` macro instead of manual JSON parsing
+
+2. **Service Registration**:
+   - ❌ DO NOT use `node.service_registry.register_service(...)` (bypasses service boundaries)
+   - ✅ DO use `node.add_service(...)` (proper API pattern)
+
+3. **Data Extraction**:
+   - ❌ DO NOT manually parse JSON when extracting values from responses
+   - ✅ DO use the `vmap!` macro for clean extraction with defaults
+
+4. **Service Interactions**:
+   - ❌ DO NOT call service methods directly (tight coupling)
+   - ✅ DO use request-based API to interact with services
+
+Every test must be checked for these architectural violations as part of the review process. 
