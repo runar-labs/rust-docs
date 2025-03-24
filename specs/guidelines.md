@@ -1,14 +1,14 @@
 When fixing issues or implementing new features, follow these steps:
 
 - Before making any change, always check the design docs in the `rust-docs/markdown/` folder
-- Create a detailed plan and save it in a file under `rust-docs/spec/under_construction/`
+- Create a detailed plan and save it in a file under `rust-docs/specs/under_construction/`
 - As you progress, keep the detailed plan up to date with:
   - Progress
   - Issues encountered
   - Solutions implemented
   - Design decisions made along the way
 - At the end, use this plan as input for documentation updates
-- Once all tests pass and documentation is updated, this file can be moved to `rust-docs/spec/completed/`, signaling the work is complete
+- Once all tests pass and documentation is updated, this file can be moved to `rust-docs/specs/completed/`, signaling the work is complete
 
 ## Code Quality Guidelines
 
@@ -814,5 +814,4 @@ The system follows specific rules for how paths and topics work in service commu
   - Removing obsolete information
   - Consolidating related information
   - Maintaining consistent formatting and style
-
-WHEN UPDATING THIS FILE DO NOT MOVE IT, LEAVE WHRE IT IS AT rust-docs/specs/guidelines.md
+ 
