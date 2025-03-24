@@ -1,7 +1,3 @@
-# Guidelines for Fixing Issues and Implementing Features
-
-## General Workflow
-
 When fixing issues or implementing new features, follow these steps:
 
 - Before making any change, always check the design docs in the `rust-docs/markdown/` folder
@@ -18,9 +14,6 @@ When fixing issues or implementing new features, follow these steps:
 
 - For each file you touch, always clean up all warnings, unused code, etc.
 - Keep the codebase clean - this includes formatting, naming, and organization
-
-## Rust Best Practices
-
 - Leverage Rust's type system to prevent errors at compile time
 - Prefer ownership over borrowing when appropriate
 - Handle errors appropriately (no unwraps in production code)
@@ -39,8 +32,8 @@ When fixing issues or implementing new features, follow these steps:
 
 1. **Service Boundaries**: Services should be well-defined with clear boundaries
 2. **API-First Approach**: All service interactions should go through documented API interfaces
-3. **Request-Based Communication**: Use request/response patterns for service interactions
-4. **Event-Driven Design**: Use publish/subscribe for event notifications
+3. **Request-Based Communication**: Use request/response patterns for service interactions (node.request() context.request())
+4. **Event-Driven Design**: Use publish/subscribe for event notifications (node.publish() context.publish())    
 
 ## API Design Best Practices
 
@@ -549,7 +542,7 @@ impl Clone for DataProcessorService {
 The key differences with the macro approach:
 
 1. The `#[service]` macro generates the `AbstractService` implementation
-2. Action handlers use the `#[action]` macro and return their actual types
+2. Action handlers use the `#[action]` macro and return result of the actual types or an error Ok(T)
 3. Event subscriptions use the `#[subscribe]` macro to register handlers
 4. Parameter extraction is handled automatically
 5. Return values are automatically wrapped in `ServiceResponse`
@@ -575,6 +568,19 @@ Both approaches are valid, but the macro-based implementation significantly redu
   - Simulate external systems (web UI, mobile apps) where needed
   - Test the "happy path" and error conditions
 - Test both value-based and map-based parameter passing for service actions
+- Never change the purpose of an existing test - if a test was designed to test a specific feature or macro,
+  maintain that purpose in any modifications. If you need to test something else, create a new test file
+  or add a new test case rather than repurposing existing tests.
+
+### Testing Macros
+
+When working with test files in macro crates:
+- **Never remove macro usage from test files** - tests in macro crates exist specifically to test macro functionality
+- **Don't work around macro issues by removing macros** - if tests fail due to macro issues, fix the macro implementation
+- The purpose of tests is to identify and fix issues, not to make tests pass at any cost
+- If a macro test is failing, investigate the root cause in the macro implementation
+- Document macro limitations clearly, but don't modify tests to avoid using macros
+- When adding new test cases, ensure they properly test the macro's behavior in various scenarios
 
 ### Testing Service Handlers
 
@@ -685,9 +691,42 @@ After each change:
   - Document the API interfaces for those external systems
 - Always include code examples in documentation that match the actual implemented API patterns
 
+## Path and Topic Rules
+
+The system follows specific rules for how paths and topics work in service communication:
+
+### Path Structure Rules
+
+1. **Standard Path Format**: `<service>/<action>` 
+   - This is the minimum required format when calling an action or publishing an event
+   - Example: `user_service/create_user`, `data_service/update_record`
+   - You can only omit the service name when calling actions or publishing events on the same service. E.g. for the user service action login, it can do context.publish("login_failed", ...) and this event will be translated by the context (which know the service name) to `user_service/login_failed`
+
+2. **Declaration Shorthand**: When declaring actions and subscribing to events, you can use shorthand notation and omit the service name
+   - The system automatically adds the service name during registration
+   - Example: In a service named `user_service`, you can declare an action as just `create_user`
+
+3. **Full Path Format**: `<network>/<service>/<action>`
+   - Used when calling a service on another network
+   - This format is not fully implemented in the current system
+   - No tests currently exist for this functionality
+
+### Path Usage Guidelines
+
+- **Action Invocation**: Always use the full `<service>/<action>` format when making requests
+- **Event Publishing**: When publishing events from within a service, use just the event name without the service prefix; the system will add the service name automatically
+- **Event Subscription**: 
+  - When using service macros, subscribe using the full `<service>/<topic>` format: `#[subscribe(topic = "service_name/event_name")]`
+  - When manually subscribing, you must also use the full path format: `context.subscribe("service_name/event_name", ...)`
+  - The subscription will receive events that match this specific topic path
+- **Consistency**: Maintain consistent naming across related services for better discoverability
+
 ## Service Macro Best Practices
 
 - Actions should return their actual data types wrapped in `Result<T>` instead of `ServiceResponse`
+  - This is the preferred approach following Rust conventions: `async fn action() -> Result<String>`
+  - For simple cases, you can also return the actual type directly: `async fn action() -> String`
+  - Both approaches are supported, but using `Result<T>` provides better error handling
 - Use the `#[action]` macro to automatically handle the wrapping of returned values
 - Implement proper error handling in action methods - errors will be automatically converted to error responses
 - Use descriptive parameter names that match the parameters in your action handler methods
