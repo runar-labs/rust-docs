@@ -2,16 +2,16 @@
 
 ## Current Status
 
-We've started refactoring the event routing tests to align with our architectural principles:
+We've made significant progress with event routing:
 
-1. Moved direct API implementations to the fixtures directory
-2. Created clean EventPublisherService and EventSubscriberService implementations
-3. Updated test helpers to use the new service implementations
-4. Added documentation for the fixture directory structure
+1. ✅ Fixed the core event routing issue with topic path handling
+2. ✅ Implemented consistent path formatting throughout the system
+3. ✅ Ensured proper event delivery from publishers to subscribers
+4. ✅ Added detailed debug logging for better diagnostics
 
-## Current Issues
+## Remaining Issues
 
-1. **Compilation Errors**: Several test files are failing compilation
+1. **Compilation Errors**: Several test files are still failing compilation
    - Missing `topic_path` field in `ServiceRequest` initializations
    - References to outdated macro-based services
    - `event_service.rs` using outdated field names (`params` vs. `data`)
@@ -22,16 +22,15 @@ We've started refactoring the event routing tests to align with our architectura
 
 ## Refactoring Steps
 
-### Phase 1: Fix Direct API Services (Current Phase)
+### Phase 1: Fix Core Event Routing ✅ (Completed)
 
-1. ✅ Create fixture directory structure
-2. ✅ Implement `EventPublisherService` and `EventSubscriberService`
-3. ✅ Update test helpers to use new services
-4. ✅ Clean up direct event service implementation
-5. 🔄 Fix ValueType handling in fixture services
-6. 🔄 Update direct event routing tests to use new services
+1. ✅ Fixed `NodeRequestHandlerImpl::publish` to pass full topic path to ServiceRegistry
+2. ✅ Updated `NodeRequestHandlerImpl::subscribe_with_options` for consistent path handling
+3. ✅ Fixed `NodeRequestHandlerImpl::unsubscribe` to match the subscription approach
+4. ✅ Added detailed debug logging to trace event flow
+5. ✅ Fixed the `unsubscribe_wrapper` method in `ServiceRegistry`
 
-### Phase 2: Address Compilation Errors
+### Phase 2: Address Compilation Errors 🔄 (In Progress)
 
 1. Fix the ServiceRequest initialization in test files
    - Add missing `topic_path` field to all ServiceRequest instances
@@ -45,7 +44,7 @@ We've started refactoring the event routing tests to align with our architectura
    - Update macro-based services to be compatible with current API structure
    - Add transition path for legacy macro-based implementations
 
-### Phase 3: Clean Up and Documentation
+### Phase 3: Clean Up and Documentation 🔄 (In Progress)
 
 1. Document the refactoring approach in detail
 2. Add deprecation notices to legacy code
@@ -83,9 +82,11 @@ We are maintaining macro-based services in a separate directory for backward com
 
 ## Progress Tracking
 
-- [x] Move direct API implementations to fixtures directory
-- [x] Create README for fixtures directory
-- [x] Update event test utils
+- [x] Fixed core event routing with topic paths
+- [x] Fixed the ServiceRegistry implementation
+- [x] Fixed NodeRequestHandlerImpl methods
+- [x] Added debug logging
+- [x] Verified with simple_events test
 - [ ] Fix ValueType handling in fixtures
 - [ ] Update all ServiceRequest initializations to include topic_path
 - [ ] Clean up macro-based services
