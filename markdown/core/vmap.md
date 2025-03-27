@@ -1,288 +1,282 @@
 # ValueMap (VMap)
 
-## Overview
-
-ValueMap (VMap) is a core abstraction in Kagi that provides an ergonomic interface for working with structured data. It simplifies parameter extraction and reduces boilerplate code through an intuitive API and accompanying macros.
+ValueMap (VMap) provides an ergonomic interface for working with structured data in Runar applications. It simplifies parameter extraction and creation using a set of powerful macros.
 
 ## Key Features
 
-- **Type-safe parameter extraction**: Get parameters with proper type conversion
-- **Comprehensive error handling**: Detailed errors for missing or invalid parameters
-- **Macro-based simplification**: Dramatically reduce parameter handling code
-- **Integration with ValueType**: Seamless work with Kagi's value type system
+- **Type-safe parameter extraction** with sensible defaults
+- **Specialized macros** for different data types
+- **Nested key access** with dot notation
+- **Type inference** from default values
+- **Comprehensive error handling**
 
 ## Basic Usage
 
-### Creating a VMap
-
 ```rust
-// Create an empty VMap
-let vmap = VMap::new();
-
-// Create from key-value pairs using the macro
+// Create a map with key-value pairs
 let params = vmap! {
-    "name" => "kagi",
-    "version" => "1.0",
-    "count" => 42,
-    "enabled" => true
+    "name" => "user123",
+    "age" => 30,
+    "is_active" => true,
+    "tags" => ["admin", "premium"],
+    "profile" => {
+        "address" => "123 Main St",
+        "created_at" => "2023-01-15T08:30:00Z"
+    }
 };
 
-// Create from an existing HashMap
-let map: HashMap<String, ValueType> = /* ... */;
-let vmap = VMap::from_hashmap(map);
+// Extract values with defaults
+let username = vmap!(params, "name" => "guest");
+let age = vmap!(params, "age" => 0);
+let is_active = vmap!(params, "is_active" => false);
+
+// Nested key access with dot notation
+let address = vmap!(params, "profile.address" => "Unknown");
 ```
 
-### Extracting Values
+## Complete Macro Reference
 
+### General-Purpose Macro
+
+The `vmap!` macro has two forms:
+
+1. Creating a map:
+   ```rust
+   let params = vmap! {
+       "key1" => "value1",
+       "key2" => 42,
+       "key3" => true
+   };
+   ```
+
+2. Extracting values:
+   ```rust
+   let value = vmap!(source, "key" => default_value);
+   ```
+
+### Type-Specific Extraction Macros
+
+Specialized macros provide cleaner code with type-specific default values:
+
+#### String Values
 ```rust
-// Get a String value with the macro and default value
+// Using general vmap! macro
 let name = vmap!(params, "name" => String::new());
 
-// Get an integer with the macro and default value
-let count = vmap!(params, "count" => 0);
-
-// Get a boolean with the macro and default value
-let enabled = vmap!(params, "enabled" => false);
-
-// For optional values, use Option with the vmap! macro
-let description = if params.contains_key("description") {
-    Some(vmap!(params, "description" => String::new()))
-} else {
-    None
-};
+// Using specialized macro - cleaner!
+let name = vmap_str!(params, "name" => "");
 ```
 
-## Before and After Comparison
-
-### Before VMap
-
-Extracting parameters used to require significant boilerplate:
-
+#### Integer Values
 ```rust
-fn process_request(params: HashMap<String, ValueType>) -> Result<(), Error> {
-    // Extract name
-    let name = match params.get("name") {
-        Some(value) => match value {
-            ValueType::String(s) => s.clone(),
-            _ => return Err(Error::InvalidParameter("name must be a string".to_string())),
-        },
-        None => return Err(Error::MissingParameter("name".to_string())),
-    };
+// Signed integers
+let count = vmap_i32!(params, "count" => 0);
+let small_num = vmap_i8!(params, "small_num" => 0);
+let medium_num = vmap_i16!(params, "medium_num" => 0);
+let large_num = vmap_i64!(params, "large_num" => 0);
 
-    // Extract count
-    let count = match params.get("count") {
-        Some(value) => match value {
-            ValueType::Int(i) => *i,
-            _ => return Err(Error::InvalidParameter("count must be an integer".to_string())),
-        },
-        None => return Err(Error::MissingParameter("count".to_string())),
-    };
-
-    // Extract enabled
-    let enabled = match params.get("enabled") {
-        Some(value) => match value {
-            ValueType::Bool(b) => *b,
-            _ => return Err(Error::InvalidParameter("enabled must be a boolean".to_string())),
-        },
-        None => false, // Default value
-    };
-
-    // Process with extracted parameters
-    println!("Processing: {}, count={}, enabled={}", name, count, enabled);
-    Ok(())
-}
+// Unsigned integers
+let byte_val = vmap_u8!(params, "byte_val" => 0);
+let positive_num = vmap_u32!(params, "positive_num" => 0);
+let big_num = vmap_u64!(params, "big_num" => 0);
 ```
 
-### After VMap
-
-With VMap, parameter extraction becomes concise and readable:
-
+#### Floating Point Values
 ```rust
-fn process_request(params: VMap) -> Result<(), Error> {
-    // Extract parameters with type inference from defaults
-    let name = vmap!(params, "name" => String::new())?;
-    let count = vmap!(params, "count" => 0)?;
-    let enabled = vmap!(params, "enabled" => false);
-
-    // Process with extracted parameters
-    println!("Processing: {}, count={}, enabled={}", name, count, enabled);
-    Ok(())
-}
+let price = vmap_f64!(params, "price" => 0.0);
+let rating = vmap_f32!(params, "rating" => 0.0);
 ```
 
-## Advanced Usage
-
-### Working with Complex Types
-
-VMap supports various parameter types, including complex structures:
-
+#### Boolean Values
 ```rust
-// Extract a JSON object
-let config = vmap!(params, "config" => serde_json::Value::Null);
-
-// Extract an array of strings
-let tags = vmap!(params, "tags" => Vec::<String>::new());
-
-// Extract a nested VMap
-let options = vmap!(params, "options" => VMap::new());
-```
-
-### Specialized Type Extraction Macros
-
-In addition to the general `vmap!` macro, VMap provides specialized macros for extracting specific types with cleaner syntax:
-
-#### String Types
-```rust
-// Extract a string value with default
-let name = vmap_str!(params, "name" => "default name");
-```
-
-#### Integer Types
-```rust
-// Extract various integer types with defaults
-let small_value = vmap_i8!(params, "small_value" => 0);
-let short_value = vmap_i16!(params, "short_value" => 0);
-let normal_value = vmap_i32!(params, "normal_value" => 0);
-let large_value = vmap_i64!(params, "large_value" => 0);
-
-// Unsigned integer types
-let byte_value = vmap_u8!(params, "byte_value" => 0);
-let uint_value = vmap_u32!(params, "uint_value" => 0);
-let big_uint_value = vmap_u64!(params, "big_uint_value" => 0);
-```
-
-#### Floating Point Types
-```rust
-// Extract float types with defaults
-let float_value = vmap_f32!(params, "float_value" => 0.0);
-let double_value = vmap_f64!(params, "double_value" => 0.0);
-```
-
-#### Boolean Type
-```rust
-// Extract boolean with default
 let is_enabled = vmap_bool!(params, "is_enabled" => false);
 ```
 
-#### Collection Types
+#### Collections
 ```rust
-// Extract a vector of strings with default
 let tags = vmap_vec!(params, "tags" => Vec::<String>::new());
 ```
 
-#### Nested Key Access
-
-All specialized macros support dot notation for accessing nested values:
-
+#### Date and Time (with chrono feature)
 ```rust
-// Access nested values with specialized macros
-let username = vmap_str!(params, "user.profile.name" => "guest");
-let user_age = vmap_i32!(params, "user.profile.age" => 0);
-let is_admin = vmap_bool!(params, "user.permissions.admin" => false);
-let scores = vmap_vec!(params, "user.statistics.scores" => Vec::<i32>::new());
-```
+let created_date = vmap_date!(params, "created_date" => 
+    chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap());
 
-#### Date and Time Types (with chrono feature)
-
-When the `chrono` feature is enabled, additional macros are available:
-
-```rust
-// Extract date values
-let created_date = vmap_date!(params, "created_date" => chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap());
-
-// Extract datetime values
 let updated_at = vmap_datetime!(params, "updated_at" => chrono::Utc::now());
 ```
 
-### Optional Values and Default Values
+### Nested Key Access
 
-For optional values, use standard Rust Option patterns:
+All macros support dot notation for accessing nested values:
 
 ```rust
-// If "timeout" is missing, use 30 seconds
-let timeout = vmap!(params, "timeout" => 30);
-
-// Explicitly check for presence when needed
-let mode = if params.contains_key("mode") {
-    Some(vmap!(params, "mode" => String::new()))
-} else {
-    Some("standard".to_string())
+// Deeply nested data
+let params = vmap! {
+    "user" => {
+        "profile" => {
+            "contact" => {
+                "email" => "user@example.com"
+            }
+        }
+    }
 };
 
-// Or more simply with Rust's standard library
-let mode = vmap!(params, "mode" => "standard".to_string());
+// Access with dot notation
+let email = vmap_str!(params, "user.profile.contact.email" => "no-email");
 ```
 
-### Handling Nested Parameters
+### Optional Values
 
-Extract nested parameters with path notation:
+For truly optional values (not just providing defaults):
 
 ```rust
-// Extract nested value: { "user": { "profile": { "name": "Alice" } } }
-let name = vmap!(params, "user.profile.name" => String::new());
+// Check if key exists first
+let optional_value = if params.contains_key("optional_field") {
+    Some(vmap!(params, "optional_field" => String::new()))
+} else {
+    None
+};
 
-// Or extract a sub-map and then access it
-let user = vmap!(params, "user" => VMap::new());
-let profile = vmap!(user, "profile" => VMap::new());
-let name = vmap!(profile, "name" => String::new());
+// Pattern matching on result
+match optional_value {
+    Some(value) => println!("Found value: {}", value),
+    None => println!("Value not provided")
+}
 ```
 
-## Error Handling
+## Practical Examples
 
-VMap provides detailed error messages that make debugging easier:
+### Service Parameter Extraction
 
 ```rust
-match vmap!(params, "count" => 0) {
-    Ok(count) => {
-        // Use count
-    },
-    Err(e) => match e {
-        Error::MissingParameter(param) => {
-            println!("Missing required parameter: {}", param);
-        },
-        Error::InvalidParameter(msg) => {
-            println!("Invalid parameter format: {}", msg);
-        },
-        _ => {
-            println!("Other error: {:?}", e);
-        }
+async fn handle_create_user(&self, request: &ServiceRequest) -> Result<ServiceResponse> {
+    // Extract required parameters with defaults
+    let username = vmap_str!(request.params, "username" => "");
+    let email = vmap_str!(request.params, "email" => "");
+    
+    // Validate required fields
+    if username.is_empty() || email.is_empty() {
+        return Ok(ServiceResponse::error("Username and email are required"));
+    }
+    
+    // Extract optional parameters with defaults
+    let full_name = vmap_str!(request.params, "full_name" => username.clone());
+    let age = vmap_i32!(request.params, "age" => 0);
+    let is_admin = vmap_bool!(request.params, "is_admin" => false);
+    
+    // Create user...
+    let user_id = create_user(username, email, full_name, age, is_admin).await?;
+    
+    // Return success with data
+    Ok(ServiceResponse::success("User created successfully", 
+        Some(vmap! {"user_id" => user_id})))
+}
+```
+
+### Event Data Extraction
+
+```rust
+async fn on_user_updated(&self, payload: ValueType) -> Result<()> {
+    // Extract event data with appropriate defaults
+    let user_id = vmap_str!(payload, "user_id" => "");
+    let old_email = vmap_str!(payload, "old_email" => "");
+    let new_email = vmap_str!(payload, "new_email" => "");
+    
+    // Process email change notification
+    if !old_email.is_empty() && !new_email.is_empty() && old_email != new_email {
+        let notification_data = vmap! {
+            "user_id" => user_id,
+            "type" => "email_changed",
+            "old_email" => old_email,
+            "new_email" => new_email
+        };
+        
+        self.notification_service.send_notification(notification_data).await?;
+    }
+    
+    Ok(())
+}
+```
+
+### Response Data Handling
+
+```rust
+async fn get_user_details(node: &Node, user_id: &str) -> Result<UserDetails> {
+    // Make service request
+    let response = node.request("user_service/get_user", user_id).await?;
+    
+    // Extract data from response
+    if response.status == ResponseStatus::Success {
+        let username = vmap_str!(response.data, "username" => "");
+        let email = vmap_str!(response.data, "email" => "");
+        let created_at = vmap_str!(response.data, "created_at" => "");
+        let profile_data = vmap!(response.data, "profile" => ValueType::Null);
+        
+        // Extract nested profile information
+        let address = vmap_str!(profile_data, "address" => "");
+        let phone = vmap_str!(profile_data, "phone" => "");
+        
+        // Construct user details
+        Ok(UserDetails {
+            user_id: user_id.to_string(),
+            username,
+            email,
+            created_at,
+            address,
+            phone
+        })
+    } else {
+        Err(anyhow!("Failed to get user: {}", response.message))
     }
 }
 ```
 
-## VMap Data Flow
+## Error Handling
 
-```mermaid
-@include "../assets/images/vmap-flow.txt"
+```rust
+// With error propagation
+fn get_required_param(params: &ValueType, name: &str) -> Result<String> {
+    let value = vmap_str!(params, name => "");
+    if value.is_empty() {
+        Err(anyhow!("Missing required parameter: {}", name))
+    } else {
+        Ok(value)
+    }
+}
+
+// With pattern matching
+match vmap_i32!(params, "count" => -1) {
+    n if n < 0 => println!("Parameter 'count' not found"),
+    0 => println!("Count is zero"),
+    n => println!("Count is {}", n)
+}
 ```
-
-The diagram above illustrates how data flows through the VMap system:
-
-1. Parameter data enters the system as a HashMap<String, ValueType>
-2. The VMap wrapper provides a structured interface to this data
-3. Extraction macros handle type conversion and error checking
-4. Typed data is passed to the application logic
 
 ## Best Practices
 
-1. **Use macros for clarity**: Prefer `vmap!` over manual extraction
-2. **Handle optional values**: Use standard Rust Option with the vmap! macro: `if params.contains_key("key") { Some(vmap!(params, "key" => default)) } else { None }`
-3. **Validate early**: Extract and validate parameters at the entry point
-4. **Use descriptive error messages**: Add context to error messages
-5. **Type consistency**: Use consistent parameter naming and types across services
+1. **Use specialized macros** for better readability:
+   - `vmap_str!`, `vmap_i32!`, `vmap_bool!`, etc. instead of generic `vmap!`
+
+2. **Provide sensible defaults** that match your application's logic
+
+3. **Use dot notation** for nested access instead of multiple extraction steps
+
+4. **Extract and validate** parameters at function entry points
+
+5. **Use type inference** from defaults instead of explicit type annotations
 
 ## Implementation Details
 
 The VMap implementation consists of:
-
 - The `VMap` struct wrapping a `HashMap<String, ValueType>`
 - Type-specific extraction methods for different data types
-- The `vmap!` macro with type inference from default values for simplified access
-- Integration with Kagi's error handling system 
+- The `vmap!` macro with type inference for simplified access
+- Specialized macros for common data types
+- Support for nested key access via dot notation
 
 ## Related Documentation
 
-- [Context System](context.md) - How context enables secure and traceable communication
-- [Request Handling](request_handling.md) - Best practices for using VMap in request handlers
-- [Service Lifecycle](lifecycle.md) - Understanding the service lifecycle and initialization
+- [Context System](context.md) - Context for secure communication
+- [Request Handling](request_handling.md) - Using VMap in request handlers
+- [Service Lifecycle](lifecycle.md) - Service lifecycle and initialization
 - [Logging System](logging.md) - Context-aware, structured logging 
