@@ -260,8 +260,8 @@ impl DataMonitorService {
     // Event handlers for the various data events
     #[subscribe(topic = "data_service/created")]
     async fn on_record_created(&mut self, payload: ValueType) -> Result<()> {
-        // Extract the record ID using vmap! macro with default value
-        let record_id = vmap!(payload, "id" => String::new());
+        // Extract the record ID using vmap_str! macro with default value
+        let record_id = vmap_str!(payload, "id" => "");
         
         // Update the statistics
         let mut stats = self.stats.lock().await;
@@ -274,8 +274,8 @@ impl DataMonitorService {
     
     #[subscribe(topic = "data_service/updated")]
     async fn on_record_updated(&mut self, payload: ValueType) -> Result<()> {
-        // Extract the record ID using vmap! macro with default value
-        let record_id = vmap!(payload, "id" => String::new());
+        // Extract the record ID using vmap_str! macro with default value
+        let record_id = vmap_str!(payload, "id" => "");
         
         // Update the statistics
         let mut stats = self.stats.lock().await;
@@ -287,8 +287,8 @@ impl DataMonitorService {
     
     #[subscribe(topic = "data_service/deleted")]
     async fn on_record_deleted(&mut self, payload: ValueType) -> Result<()> {
-        // Extract the record ID using vmap! macro with default value
-        let record_id = vmap!(payload, "id" => String::new());
+        // Extract the record ID using vmap_str! macro with default value
+        let record_id = vmap_str!(payload, "id" => "");
         
         // Update the statistics
         let mut stats = self.stats.lock().await;
@@ -350,7 +350,7 @@ async fn main() -> Result<()> {
     ).await?;
     
     // Extract the record ID directly (the action returns a String)
-    let record_id = vmap!(create_result.data, => String::new());
+    let record_id = vmap_str!(create_result.data, => "");
     println!("Created record with ID: {}", record_id);
     
     // Update the record using map-based parameters
@@ -366,7 +366,7 @@ async fn main() -> Result<()> {
     
     // Count records - direct value extraction
     let count_result = node.request("data_service/count", vmap!{}).await?;
-    let record_count = vmap!(count_result.data, => 0);
+    let record_count = vmap_u32!(count_result.data, => 0);
     println!("Current record count: {}", record_count);
     
     // Get a record using direct parameter passing
@@ -376,9 +376,9 @@ async fn main() -> Result<()> {
         record_id.clone(), // Direct string parameter without vmap!
     ).await?;
     
-    // Extract the record data using vmap! macro
-    let record_name = vmap!(get_result.data, "name" => String::new());
-    let record_value = vmap!(get_result.data, "value" => String::new());
+    // Extract the record data using specialized vmap macros
+    let record_name = vmap_str!(get_result.data, "name" => "");
+    let record_value = vmap_str!(get_result.data, "value" => "");
     println!("Retrieved record - Name: {}, Value: {}", record_name, record_value);
     
     // Wait a bit for events to be processed
@@ -400,7 +400,7 @@ async fn main() -> Result<()> {
     ).await?;
     
     // The delete action returns a boolean
-    let delete_success = vmap!(delete_result.data, => false);
+    let delete_success = vmap_bool!(delete_result.data, => false);
     println!("Delete successful: {}", delete_success);
     
     // Wait for events to be processed
@@ -426,7 +426,7 @@ async fn main() -> Result<()> {
 
 1. **Direct Return Types**: Action methods return their actual data types (`String`, `DataRecord`, `u32`, etc.) instead of `ServiceResponse`.
 
-2. **Simplified Parameter Extraction**: The `vmap!` macro is used for clean parameter extraction with defaults:
+2. **Simplified Parameter Extraction**: The `vmap!` and specialized type macros are used for clean parameter extraction with defaults:
    ```rust
    // Instead of chained unwraps:
    let record_id = create_result
@@ -435,8 +435,8 @@ async fn main() -> Result<()> {
        .and_then(|id| id.as_str().map(|s| s.to_string()))
        .expect("Failed to get record ID");
        
-   // With vmap! macro:
-   let record_id = vmap!(create_result.data, => String::new());
+   // With specialized vmap macro:
+   let record_id = vmap_str!(create_result.data, => "");
    ```
 
 3. **Direct Parameter Passing**: For actions with a single parameter, you can pass the value directly:

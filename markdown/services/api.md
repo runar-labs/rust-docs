@@ -78,10 +78,7 @@ impl MyService {
     // Implementation of operation2
     async fn operation2(&self, request: &ServiceRequest) -> Result<ServiceResponse> {
         // Implement action here...
-        let param = request
-            .get_param("param")
-            .and_then(|v| v.as_str().map(|s| s.to_string()))
-            .unwrap_or_default();
+        let param = vmap_str!(request.params, "param" => "");
             
         Ok(ServiceResponse {
             status: ResponseStatus::Success,
@@ -187,7 +184,7 @@ Operations (also called actions) are implemented in the `process_request` method
 // Implementation methods for each operation
 async fn get_data(&self, request: &ServiceRequest) -> Result<ServiceResponse> {
     // Extract parameters with the vmap! macro and default values
-    let id = vmap!(request.params, "id" => String::new());
+    let id = vmap_str!(request.params, "id" => "");
     if id.is_empty() {
         return Err(anyhow!("Missing required parameter: id"));
     }
@@ -203,12 +200,12 @@ async fn get_data(&self, request: &ServiceRequest) -> Result<ServiceResponse> {
 
 async fn update_data(&self, request: &ServiceRequest) -> Result<ServiceResponse> {
     // Extract parameters with the vmap! macro and default values
-    let id = vmap!(request.params, "id" => String::new());
+    let id = vmap_str!(request.params, "id" => "");
     if id.is_empty() {
         return Err(anyhow!("Missing required parameter: id"));
     }
         
-    let value = vmap!(request.params, "value" => String::new());
+    let value = vmap_str!(request.params, "value" => "");
     if value.is_empty() {
         return Err(anyhow!("Missing required parameter: value"));
     }
@@ -656,7 +653,42 @@ match self.validate_input(request) {
         })
     }
 }
-``` 
+```
+
+### Parameter Extraction with Specialized Macros
+
+The Kagi framework provides specialized macros for cleaner parameter extraction:
+
+```rust
+// String parameter extraction
+let name = vmap_str!(params, "name" => "default_name");
+
+// Integer parameter extraction
+let count = vmap_i32!(params, "count" => 0);
+let points = vmap_i64!(params, "points" => 0);
+
+// Float parameter extraction
+let price = vmap_f64!(params, "price" => 0.0);
+let score = vmap_f32!(params, "score" => 0.0);
+
+// Boolean parameter extraction
+let is_active = vmap_bool!(params, "is_active" => false);
+
+// Collection parameter extraction
+let tags = vmap_vec!(params, "tags" => Vec::<String>::new());
+
+// Nested parameter extraction with dot notation
+let email = vmap_str!(params, "user.contact.email" => "");
+
+// Optional parameters
+let optional = if params.contains_key("optional_field") {
+    Some(vmap_str!(params, "optional_field" => ""))
+} else {
+    None
+};
+```
+
+These specialized macros not only provide cleaner code but also help with type inference and default values.
 
 ## Examples
 

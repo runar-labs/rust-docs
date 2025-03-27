@@ -282,4 +282,39 @@ async fn test_error_handling() {
     assert_eq!(response.status, ResponseStatus::Error);
     assert!(response.message.contains("Missing parameters"));
 }
-``` 
+```
+
+### Parameter Extraction
+
+When handling requests, the `vmap!` family of macros provides a clean way to extract parameters:
+
+```rust
+async fn handle_request(&self, request: ServiceRequest) -> Result<ServiceResponse> {
+    match request.operation.as_str() {
+        "get_user" => {
+            // String parameter extraction with default
+            let user_id = vmap_str!(request.params, "user_id" => "");
+            if user_id.is_empty() {
+                return Ok(ServiceResponse::error("Missing user_id parameter"));
+            }
+            
+            // Optional parameters with specialized macros
+            let include_details = vmap_bool!(request.params, "include_details" => false);
+            let max_items = vmap_i32!(request.params, "max_items" => 10);
+            
+            // Handle the request with extracted parameters
+            // ...
+        },
+        "update_settings" => {
+            // Nested parameter extraction using dot notation
+            let notification_email = vmap_str!(request.params, "settings.notifications.email" => "");
+            let alert_threshold = vmap_f64!(request.params, "settings.alerts.threshold" => 0.0);
+            
+            // ...
+        },
+        _ => Ok(ServiceResponse::error(format!("Unknown operation: {}", request.operation)))
+    }
+}
+```
+
+This approach is more concise and robust than manual extraction chains and provides clear default values. 

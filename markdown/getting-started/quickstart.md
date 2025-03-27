@@ -142,7 +142,36 @@ async fn main() -> Result<()> {
         .build_and_run()
         .await
 }
+
+## Parameter Extraction
+
+When working with incoming requests or event data, Kagi provides specialized macros for parameter extraction:
+
+```rust
+// In an action handler:
+async fn handle_user_action(&self, request: ServiceRequest) -> Result<ServiceResponse> {
+    // Extract required parameters
+    let username = vmap_str!(request.params, "username" => "");
+    if username.is_empty() {
+        return Ok(ServiceResponse::error("Username is required"));
+    }
+    
+    // Extract optional parameters with defaults
+    let age = vmap_i32!(request.params, "age" => 0);
+    let is_admin = vmap_bool!(request.params, "is_admin" => false);
+    let scores = vmap_vec!(request.params, "scores" => Vec::<i32>::new());
+    
+    // Extract nested parameters with dot notation
+    let email = vmap_str!(request.params, "contact.email" => "");
+    
+    // Your logic here...
+    
+    // Return response
+    Ok(ServiceResponse::success("User processed successfully"))
+}
 ```
+
+These specialized macros provide cleaner and more robust parameter extraction compared to manual approaches.
 
 ## Running the Application
 
