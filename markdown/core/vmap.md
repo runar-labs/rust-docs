@@ -127,6 +127,73 @@ let tags = vmap!(params, "tags" => Vec::<String>::new());
 let options = vmap!(params, "options" => VMap::new());
 ```
 
+### Specialized Type Extraction Macros
+
+In addition to the general `vmap!` macro, VMap provides specialized macros for extracting specific types with cleaner syntax:
+
+#### String Types
+```rust
+// Extract a string value with default
+let name = vmap_str!(params, "name" => "default name");
+```
+
+#### Integer Types
+```rust
+// Extract various integer types with defaults
+let small_value = vmap_i8!(params, "small_value" => 0);
+let short_value = vmap_i16!(params, "short_value" => 0);
+let normal_value = vmap_i32!(params, "normal_value" => 0);
+let large_value = vmap_i64!(params, "large_value" => 0);
+
+// Unsigned integer types
+let byte_value = vmap_u8!(params, "byte_value" => 0);
+let uint_value = vmap_u32!(params, "uint_value" => 0);
+let big_uint_value = vmap_u64!(params, "big_uint_value" => 0);
+```
+
+#### Floating Point Types
+```rust
+// Extract float types with defaults
+let float_value = vmap_f32!(params, "float_value" => 0.0);
+let double_value = vmap_f64!(params, "double_value" => 0.0);
+```
+
+#### Boolean Type
+```rust
+// Extract boolean with default
+let is_enabled = vmap_bool!(params, "is_enabled" => false);
+```
+
+#### Collection Types
+```rust
+// Extract a vector of strings with default
+let tags = vmap_vec!(params, "tags" => Vec::<String>::new());
+```
+
+#### Nested Key Access
+
+All specialized macros support dot notation for accessing nested values:
+
+```rust
+// Access nested values with specialized macros
+let username = vmap_str!(params, "user.profile.name" => "guest");
+let user_age = vmap_i32!(params, "user.profile.age" => 0);
+let is_admin = vmap_bool!(params, "user.permissions.admin" => false);
+let scores = vmap_vec!(params, "user.statistics.scores" => Vec::<i32>::new());
+```
+
+#### Date and Time Types (with chrono feature)
+
+When the `chrono` feature is enabled, additional macros are available:
+
+```rust
+// Extract date values
+let created_date = vmap_date!(params, "created_date" => chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap());
+
+// Extract datetime values
+let updated_at = vmap_datetime!(params, "updated_at" => chrono::Utc::now());
+```
+
 ### Optional Values and Default Values
 
 For optional values, use standard Rust Option patterns:
