@@ -186,11 +186,11 @@ Operations (also called actions) are implemented in the `process_request` method
 
 // Implementation methods for each operation
 async fn get_data(&self, request: &ServiceRequest) -> Result<ServiceResponse> {
-    // Extract parameters
-    let id = request
-        .get_param("id")
-        .and_then(|v| v.as_str().map(String::from))
-        .ok_or_else(|| anyhow!("Missing required parameter: id"))?;
+    // Extract parameters with the vmap! macro and default values
+    let id = vmap!(request.params, "id" => String::new());
+    if id.is_empty() {
+        return Err(anyhow!("Missing required parameter: id"));
+    }
         
     // Implement action here...
     
@@ -202,16 +202,16 @@ async fn get_data(&self, request: &ServiceRequest) -> Result<ServiceResponse> {
 }
 
 async fn update_data(&self, request: &ServiceRequest) -> Result<ServiceResponse> {
-    // Extract parameters
-    let id = request
-        .get_param("id")
-        .and_then(|v| v.as_str().map(String::from))
-        .ok_or_else(|| anyhow!("Missing required parameter: id"))?;
+    // Extract parameters with the vmap! macro and default values
+    let id = vmap!(request.params, "id" => String::new());
+    if id.is_empty() {
+        return Err(anyhow!("Missing required parameter: id"));
+    }
         
-    let value = request
-        .get_param("value")
-        .and_then(|v| v.as_str().map(String::from))
-        .ok_or_else(|| anyhow!("Missing required parameter: value"))?;
+    let value = vmap!(request.params, "value" => String::new());
+    if value.is_empty() {
+        return Err(anyhow!("Missing required parameter: value"));
+    }
     
     // Implement action here...
     
@@ -661,3 +661,34 @@ match self.validate_input(request) {
 ## Examples
 
 This section will be expanded with practical examples.
+
+// Example of sending a request to a service
+async fn send_update_request(node: &Node) -> Result<()> {
+    let params = vmap! {
+        "id" => "record123",
+        "value" => "new content"
+    };
+    
+    let response = node.request("my_service/update_data", params).await?;
+    
+    // Check response status
+    if response.status == ResponseStatus::Success {
+        println!("Update successful: {}", response.message);
+    } else {
+        println!("Update failed: {}", response.message);
+    }
+    
+    Ok(())
+}
+
+// Example of publishing an event
+async fn publish_record_updated(node: &Node, record_id: &str) -> Result<()> {
+    let params = vmap! {
+        "record_id" => record_id,
+        "timestamp" => Utc::now().to_rfc3339()
+    };
+    
+    node.publish("my_service/record_updated", params).await?;
+    
+    Ok(())
+}

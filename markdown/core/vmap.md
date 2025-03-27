@@ -35,17 +35,21 @@ let vmap = VMap::from_hashmap(map);
 ### Extracting Values
 
 ```rust
-// Get a String value with the macro
-let name: String = vmap!(params, "name", String)?;
+// Get a String value with the macro and default value
+let name = vmap!(params, "name" => String::new());
 
-// Get an integer with the macro
-let count: i32 = vmap!(params, "count", Int)?;
+// Get an integer with the macro and default value
+let count = vmap!(params, "count" => 0);
 
-// Get a boolean with the macro
-let enabled: bool = vmap!(params, "enabled", Bool)?;
+// Get a boolean with the macro and default value
+let enabled = vmap!(params, "enabled" => false);
 
-// Get an optional value (doesn't error if missing)
-let description: Option<String> = vmap_opt!(params, "description", String);
+// For optional values, use Option with the vmap! macro
+let description = if params.contains_key("description") {
+    Some(vmap!(params, "description" => String::new()))
+} else {
+    None
+};
 ```
 
 ## Before and After Comparison
@@ -95,10 +99,10 @@ With VMap, parameter extraction becomes concise and readable:
 
 ```rust
 fn process_request(params: VMap) -> Result<(), Error> {
-    // Extract parameters with type conversion
-    let name: String = vmap!(params, "name", String)?;
-    let count: i32 = vmap!(params, "count", Int)?;
-    let enabled: bool = vmap_opt!(params, "enabled", Bool).unwrap_or(false);
+    // Extract parameters with type inference from defaults
+    let name = vmap!(params, "name" => String::new())?;
+    let count = vmap!(params, "count" => 0)?;
+    let enabled = vmap!(params, "enabled" => false);
 
     // Process with extracted parameters
     println!("Processing: {}, count={}, enabled={}", name, count, enabled);
@@ -114,25 +118,32 @@ VMap supports various parameter types, including complex structures:
 
 ```rust
 // Extract a JSON object
-let config: serde_json::Value = vmap!(params, "config", Json)?;
+let config = vmap!(params, "config" => serde_json::Value::Null);
 
 // Extract an array of strings
-let tags: Vec<String> = vmap!(params, "tags", StringArray)?;
+let tags = vmap!(params, "tags" => Vec::<String>::new());
 
 // Extract a nested VMap
-let options: VMap = vmap!(params, "options", Map)?;
+let options = vmap!(params, "options" => VMap::new());
 ```
 
-### Default Values
+### Optional Values and Default Values
 
-The `vmap_opt!` macro allows specifying default values:
+For optional values, use standard Rust Option patterns:
 
 ```rust
 // If "timeout" is missing, use 30 seconds
-let timeout: u64 = vmap_opt!(params, "timeout", Int).unwrap_or(30);
+let timeout = vmap!(params, "timeout" => 30);
 
-// If "mode" is missing, use "standard"
-let mode: String = vmap_opt!(params, "mode", String).unwrap_or_else(|| "standard".to_string());
+// Explicitly check for presence when needed
+let mode = if params.contains_key("mode") {
+    Some(vmap!(params, "mode" => String::new()))
+} else {
+    Some("standard".to_string())
+};
+
+// Or more simply with Rust's standard library
+let mode = vmap!(params, "mode" => "standard".to_string());
 ```
 
 ### Handling Nested Parameters
@@ -199,7 +210,7 @@ The VMap implementation consists of:
 
 - The `VMap` struct wrapping a `HashMap<String, ValueType>`
 - Type-specific extraction methods for different data types
-- The `vmap!` and `vmap_opt!` macros for simplified access
+- The `vmap!` macro with type inference from default values for simplified access
 - Integration with Kagi's error handling system 
 
 ## Related Documentation

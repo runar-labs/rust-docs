@@ -257,66 +257,45 @@ impl DataMonitorService {
         Ok(stats.clone())
     }
     
-    // Subscribe to "created" events from DataService
+    // Event handlers for the various data events
     #[subscribe(topic = "data_service/created")]
-    async fn handle_created_event(&self, payload: ValueType) -> Result<()> {
-        // Extract the record ID using vmap! macro
+    async fn on_record_created(&mut self, payload: ValueType) -> Result<()> {
+        // Extract the record ID using vmap! macro with default value
         let record_id = vmap!(payload, "id" => String::new());
         
-        // Update statistics
+        // Update the statistics
         let mut stats = self.stats.lock().await;
+        *stats.entry("created".to_string()).or_insert(0) += 1;
+        *stats.entry("total".to_string()).or_insert(0) += 1;
         
-        if let Some(count) = stats.get_mut("created") {
-            *count += 1;
-        }
-        
-        if let Some(total) = stats.get_mut("total") {
-            *total += 1;
-        }
-        
-        println!("DataMonitorService: Received created event for record ID: {}", record_id);
+        println!("Record created: {}", record_id);
         Ok(())
     }
     
-    // Subscribe to "updated" events from DataService
     #[subscribe(topic = "data_service/updated")]
-    async fn handle_updated_event(&self, payload: ValueType) -> Result<()> {
-        // Extract the record ID using vmap! macro
+    async fn on_record_updated(&mut self, payload: ValueType) -> Result<()> {
+        // Extract the record ID using vmap! macro with default value
         let record_id = vmap!(payload, "id" => String::new());
         
-        // Update statistics
+        // Update the statistics
         let mut stats = self.stats.lock().await;
+        *stats.entry("updated".to_string()).or_insert(0) += 1;
         
-        if let Some(count) = stats.get_mut("updated") {
-            *count += 1;
-        }
-        
-        if let Some(total) = stats.get_mut("total") {
-            *total += 1;
-        }
-        
-        println!("DataMonitorService: Received updated event for record ID: {}", record_id);
+        println!("Record updated: {}", record_id);
         Ok(())
     }
     
-    // Subscribe to "deleted" events from DataService
     #[subscribe(topic = "data_service/deleted")]
-    async fn handle_deleted_event(&self, payload: ValueType) -> Result<()> {
-        // Extract the record ID using vmap! macro
+    async fn on_record_deleted(&mut self, payload: ValueType) -> Result<()> {
+        // Extract the record ID using vmap! macro with default value
         let record_id = vmap!(payload, "id" => String::new());
         
-        // Update statistics
+        // Update the statistics
         let mut stats = self.stats.lock().await;
+        *stats.entry("deleted".to_string()).or_insert(0) += 1;
+        *stats.entry("total".to_string()).or_insert(0) -= 1;
         
-        if let Some(count) = stats.get_mut("deleted") {
-            *count += 1;
-        }
-        
-        if let Some(total) = stats.get_mut("total") {
-            *total += 1;
-        }
-        
-        println!("DataMonitorService: Received deleted event for record ID: {}", record_id);
+        println!("Record deleted: {}", record_id);
         Ok(())
     }
 }

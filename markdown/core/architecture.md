@@ -618,3 +618,335 @@ sequenceDiagram
 ```
 
 This comprehensive example demonstrates how all the architectural elements work together in a cohesive application, following the recommended patterns and guidelines.
+
+## Example Implementations
+
+### TaskService Implementation
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use chrono::Utc;
+use runar_node::{
+    Node, ValueType, vmap,
+    services::{
+        AbstractService, RequestContext, ResponseStatus, 
+        ServiceRequest, ServiceResponse, ServiceState
+    }
+};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use uuid::Uuid;
+
+struct Task {
+    id: String,
+    title: String,
+    description: String,
+    completed: bool,
+    created_at: String,
+    updated_at: String,
+}
+
+impl Task {
+    fn new(title: &str, description: &str) -> Self {
+        let now = Utc::now().to_rfc3339();
+        Self {
+            id: Uuid::new_v4().to_string(),
+            title: title.to_string(),
+            description: description.to_string(),
+            completed: false,
+            created_at: now.clone(),
+            updated_at: now,
+        }
+    }
+    
+    fn mark_complete(&mut self) {
+        self.completed = true;
+        self.updated_at = Utc::now().to_rfc3339();
+    }
+    
+    fn to_value_type(&self) -> ValueType {
+        let event_data = vmap! {
+            "id" => self.id.clone(),
+            "title" => self.title.clone(),
+            "description" => self.description.clone(),
+            "completed" => self.completed,
+            "created_at" => self.created_at.clone(),
+            "updated_at" => self.updated_at.clone()
+        };
+        event_data
+    }
+}
+
+struct TaskService {
+    name: String,
+    path: String,
+    state: ServiceState,
+    tasks: Arc<Mutex<HashMap<String, Task>>>,
+}
+
+impl TaskService {
+    fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            path: name.to_string(),
+            state: ServiceState::Created,
+            tasks: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+    
+    async fn handle_create(&self, request: &ServiceRequest, context: &RequestContext) -> Result<ServiceResponse> {
+        // Extract parameters using vmap! with proper defaults
+        let title = vmap!(request.params, "title" => String::new());
+        let description = vmap!(request.params, "description" => String::new());
+        
+        // Create a new task
+        let task = Task::new(&title, &description);
+        let task_id = task.id.clone();
+        
+        // Store the task
+        {
+            let mut tasks = self.tasks.lock().await;
+            tasks.insert(task_id.clone(), task.clone());
+        }
+        
+        // Publish task created event
+        let event_data = vmap! {
+            "task_id" => task_id.clone(),
+            "title" => title
+        };
+        
+        context.publish(&format!("{}/task_created", self.path), event_data).await?;
+        
+        // Return the task ID
+        Ok(ServiceResponse {
+            status: ResponseStatus::Success,
+            message: "Task created successfully".to_string(),
+            data: Some(vmap! {
+                "id" => task_id
+            }),
+        })
+    }
+    
+    async fn handle_complete(&self, request: &ServiceRequest, context: &RequestContext) -> Result<ServiceResponse> {
+        // Extract task ID using vmap! with default value
+        let task_id = vmap!(request.params, "task_id" => String::new());
+        
+        let mut task_found = false;
+        
+        // Mark the task as complete
+        {
+            let mut tasks = self.tasks.lock().await;
+            if let Some(task) = tasks.get_mut(&task_id) {
+                task.mark_complete();
+                task_found = true;
+            }
+        }
+        
+        if task_found {
+            // Publish task completed event
+            let event_data = vmap! {
+                "task_id" => task_id
+            };
+            
+            context.publish(&format!("{}/task_completed", self.path), event_data).await?;
+            
+            // Return success response
+            Ok(ServiceResponse {
+                status: ResponseStatus::Success,
+                message: "Task marked as complete".to_string(),
+                data: None,
+            })
+        } else {
+            // Return error response
+            Ok(ServiceResponse {
+                status: ResponseStatus::Error,
+                message: format!("Task with ID {} not found", task_id),
+                data: None,
+            })
+        }
+    }
+}
+
+#[async_trait]
+impl AbstractService for TaskService {
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    fn state(&self) -> ServiceState {
+        self.state
+    }
+    
+    fn description(&self) -> &str {
+        "Service for managing tasks"
+    }
+    
+    fn version(&self) -> &str {
+        "1.0.0"
+    }
+    
+    async fn init(&mut self, _context: &RequestContext) -> Result<()> {
+        self.state = ServiceState::Initialized;
+        Ok(())
+    }
+    
+    async fn start(&mut self) -> Result<()> {
+        self.state = ServiceState::Running;
+        Ok(())
+    }
+    
+    async fn stop(&mut self) -> Result<()> {
+        self.state = ServiceState::Stopped;
+        Ok(())
+    }
+    
+    async fn handle_request(&self, request: ServiceRequest) -> Result<ServiceResponse> {
+        match request.operation.as_str() {
+            "create" => self.handle_create(&request, &request.request_context).await,
+            "complete" => self.handle_complete(&request, &request.request_context).await,
+            _ => Ok(ServiceResponse {
+                status: ResponseStatus::Error,
+                message: format!("Unknown operation: {}", request.operation),
+                data: None,
+            }),
+        }
+    }
+}
+```
+
+### TaskMonitorService Implementation
+
+```rust
+struct TaskMonitorService {
+    name: String,
+    path: String,
+    state: ServiceState,
+    task_counts: Arc<Mutex<HashMap<String, usize>>>,
+}
+
+impl TaskMonitorService {
+    fn new(name: &str) -> Self {
+        let mut counts = HashMap::new();
+        counts.insert("created".to_string(), 0);
+        counts.insert("completed".to_string(), 0);
+        
+        Self {
+            name: name.to_string(),
+            path: name.to_string(),
+            state: ServiceState::Created,
+            task_counts: Arc::new(Mutex::new(counts)),
+        }
+    }
+    
+    async fn on_task_created(&self, payload: ValueType) -> Result<()> {
+        // Extract task ID using vmap! with default value
+        let task_id = vmap!(payload, "task_id" => String::new());
+        let title = vmap!(payload, "title" => String::new());
+        
+        // Update counts
+        {
+            let mut counts = self.task_counts.lock().await;
+            *counts.entry("created".to_string()).or_insert(0) += 1;
+        }
+        
+        println!("TaskMonitorService: New task created - ID: {}, Title: {}", task_id, title);
+        Ok(())
+    }
+    
+    async fn on_task_completed(&self, payload: ValueType) -> Result<()> {
+        // Extract task ID using vmap! with default value
+        let task_id = vmap!(payload, "task_id" => String::new());
+        
+        // Update counts
+        {
+            let mut counts = self.task_counts.lock().await;
+            *counts.entry("completed".to_string()).or_insert(0) += 1;
+        }
+        
+        println!("TaskMonitorService: Task completed - ID: {}", task_id);
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl AbstractService for TaskMonitorService {
+    // ... other trait methods as shown above ...
+    
+    async fn init(&mut self, context: &RequestContext) -> Result<()> {
+        // Subscribe to task events
+        context.subscribe("task_service/task_created", move |payload| {
+            let this = self.clone();
+            Box::pin(async move {
+                this.on_task_created(payload).await
+            })
+        }).await?;
+        
+        context.subscribe("task_service/task_completed", move |payload| {
+            let this = self.clone();
+            Box::pin(async move {
+                this.on_task_completed(payload).await
+            })
+        }).await?;
+        
+        self.state = ServiceState::Initialized;
+        Ok(())
+    }
+    
+    // ... other trait methods as shown above ...
+}
+```
+
+### Usage Example
+
+```rust
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Create a node
+    let mut node = Node::new(/* config */);
+    
+    // Add services
+    let task_service = TaskService::new("task_service");
+    let monitor_service = TaskMonitorService::new("task_monitor");
+    
+    node.add_service(task_service).await?;
+    node.add_service(monitor_service).await?;
+    
+    // Start the node
+    node.start().await?;
+    
+    // Create a task
+    let create_params = vmap! {
+        "title" => "Implement architecture",
+        "description" => "Create a clean, modular architecture"
+    };
+    
+    let create_result = node.request("task_service/create", create_params).await?;
+    
+    // Extract task ID using vmap! for clean extraction with defaults
+    let task_id = vmap!(create_result.data, "id" => String::new());
+    
+    // Complete the task
+    let complete_params = vmap! {
+        "task_id" => task_id
+    };
+    
+    node.request("task_service/complete", complete_params).await?;
+    
+    // Node shutdown will happen automatically when it goes out of scope
+    Ok(())
+}
+```
+
+## Key Architecture Features
+
+1. **Service Boundaries**: Tasks and monitoring are separate services
+2. **Event-Driven Communication**: Services communicate via events
+3. **Request-Response Pattern**: Task operations use request-response
+4. **Clean Module Organization**: Each component has a clear responsibility 
+5. **Clean Parameter Extraction**: Using `vmap!` macro for safe extraction with defaults
