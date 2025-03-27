@@ -431,7 +431,7 @@ impl ProfileService {
         // Update profile
         self.db.update_profile(user_id.clone(), profile).await?;
         
-        // Invalidate cache within the current network
+        // Invalidate cache within the current network using vmap! to create parameters
         context.request(
             "profile/cache/delete",
             vmap! {

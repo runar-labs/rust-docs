@@ -471,8 +471,8 @@ impl AnalyticsService {
     // Subscribe to task creation events
     #[subscribe(topic = "tasks/created")]
     async fn on_task_created(&mut self, payload: ValueType) -> Result<()> {
-        let task_id = vmap!(payload, "task_id" => String::new());
-        let title = vmap!(payload, "title" => String::new());
+        let task_id = vmap_str!(payload, "task_id" => "");
+        let title = vmap_str!(payload, "title" => "");
         
         println!("Analytics: New task created: {} - {}", task_id, title);
         
@@ -486,7 +486,7 @@ impl AnalyticsService {
     // Subscribe to task completion events
     #[subscribe(topic = "tasks/completed")]
     async fn on_task_completed(&mut self, payload: ValueType) -> Result<()> {
-        let task_id = vmap!(payload, "task_id" => String::new());
+        let task_id = vmap_str!(payload, "task_id" => "");
         
         println!("Analytics: Task completed: {}", task_id);
         
@@ -538,7 +538,7 @@ async fn main() -> Result<()> {
     let create_result = node.request("task_service/create_task", create_params).await?;
     
     // Extract task ID using vmap! for clean extraction with defaults
-    let task_id = vmap!(create_result.data, "id" => String::new());
+    let task_id = vmap_str!(create_result.data, "id" => "");
     println!("Created task with ID: {}", task_id);
     
     // Complete the task
@@ -571,7 +571,7 @@ This example demonstrates all the critical architectural patterns:
 2. **Service Registration**: Using `node.add_service()` to properly register services
 3. **Request-based API**: Using `node.request()` for all service interactions
 4. **Event-driven Communication**: Services communicate via events for loose coupling
-5. **Clean Parameter Extraction**: Using `vmap!` macro for safe extraction with defaults
+5. **Clean Parameter Extraction**: Using specialized vmap macros (`vmap_str!`, `vmap_i32!`, etc.) for safe extraction with defaults
 6. **Proper Lifecycle Management**: Following create → init → start → use → stop
 
 ### Service Communication Flow
@@ -698,8 +698,8 @@ impl TaskService {
     
     async fn handle_create(&self, request: &ServiceRequest, context: &RequestContext) -> Result<ServiceResponse> {
         // Extract parameters using vmap! with proper defaults
-        let title = vmap!(request.params, "title" => String::new());
-        let description = vmap!(request.params, "description" => String::new());
+        let title = vmap_str!(request.params, "title" => "");
+        let description = vmap_str!(request.params, "description" => "");
         
         // Create a new task
         let task = Task::new(&title, &description);
@@ -731,7 +731,7 @@ impl TaskService {
     
     async fn handle_complete(&self, request: &ServiceRequest, context: &RequestContext) -> Result<ServiceResponse> {
         // Extract task ID using vmap! with default value
-        let task_id = vmap!(request.params, "task_id" => String::new());
+        let task_id = vmap_str!(request.params, "task_id" => "");
         
         let mut task_found = false;
         
@@ -846,8 +846,8 @@ impl TaskMonitorService {
     
     async fn on_task_created(&self, payload: ValueType) -> Result<()> {
         // Extract task ID using vmap! with default value
-        let task_id = vmap!(payload, "task_id" => String::new());
-        let title = vmap!(payload, "title" => String::new());
+        let task_id = vmap_str!(payload, "task_id" => "");
+        let title = vmap_str!(payload, "title" => "");
         
         // Update counts
         {
@@ -861,7 +861,7 @@ impl TaskMonitorService {
     
     async fn on_task_completed(&self, payload: ValueType) -> Result<()> {
         // Extract task ID using vmap! with default value
-        let task_id = vmap!(payload, "task_id" => String::new());
+        let task_id = vmap_str!(payload, "task_id" => "");
         
         // Update counts
         {
@@ -929,7 +929,7 @@ async fn main() -> Result<()> {
     let create_result = node.request("task_service/create", create_params).await?;
     
     // Extract task ID using vmap! for clean extraction with defaults
-    let task_id = vmap!(create_result.data, "id" => String::new());
+    let task_id = vmap_str!(create_result.data, "id" => "");
     
     // Complete the task
     let complete_params = vmap! {
@@ -949,4 +949,4 @@ async fn main() -> Result<()> {
 2. **Event-Driven Communication**: Services communicate via events
 3. **Request-Response Pattern**: Task operations use request-response
 4. **Clean Module Organization**: Each component has a clear responsibility 
-5. **Clean Parameter Extraction**: Using `vmap!` macro for safe extraction with defaults
+5. **Clean Parameter Extraction**: Using specialized vmap macros (`vmap_str!`, `vmap_i32!`, etc.) for safe extraction with defaults
