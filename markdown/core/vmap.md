@@ -219,12 +219,12 @@ Extract nested parameters with path notation:
 
 ```rust
 // Extract nested value: { "user": { "profile": { "name": "Alice" } } }
-let name: String = vmap!(params, "user.profile.name", String)?;
+let name = vmap!(params, "user.profile.name" => String::new());
 
 // Or extract a sub-map and then access it
-let user: VMap = vmap!(params, "user", Map)?;
-let profile: VMap = vmap!(user, "profile", Map)?;
-let name: String = vmap!(profile, "name", String)?;
+let user = vmap!(params, "user" => VMap::new());
+let profile = vmap!(user, "profile" => VMap::new());
+let name = vmap!(profile, "name" => String::new());
 ```
 
 ## Error Handling
@@ -232,7 +232,7 @@ let name: String = vmap!(profile, "name", String)?;
 VMap provides detailed error messages that make debugging easier:
 
 ```rust
-match vmap!(params, "count", Int) {
+match vmap!(params, "count" => 0) {
     Ok(count) => {
         // Use count
     },
@@ -266,7 +266,7 @@ The diagram above illustrates how data flows through the VMap system:
 ## Best Practices
 
 1. **Use macros for clarity**: Prefer `vmap!` over manual extraction
-2. **Handle optional parameters**: Use `vmap_opt!` for optional values
+2. **Handle optional values**: Use standard Rust Option with the vmap! macro: `if params.contains_key("key") { Some(vmap!(params, "key" => default)) } else { None }`
 3. **Validate early**: Extract and validate parameters at the entry point
 4. **Use descriptive error messages**: Add context to error messages
 5. **Type consistency**: Use consistent parameter naming and types across services
