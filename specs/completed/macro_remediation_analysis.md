@@ -34,18 +34,30 @@ The action macro has been updated to support direct parameters:
 - ✅ Implemented parameter extraction from request data using `vmap_i32!` for numeric parameters
 - ✅ Added support for returning primitive types (`i32`, etc.) directly from action methods
 - ✅ Maintained backward compatibility for methods that explicitly use `ServiceRequest`
+- ❌ Need to fix RequestContext parameter handling in action methods
+- ❌ Need to implement proper Node API integration for testing
 
 ### Service Macro Status
 
-- ❌ Currently only implements `ServiceInfo` trait, but doesn't implement the full `AbstractService` trait
-- ❌ Doesn't generate required methods like `handle_request` and lifecycle methods
-- ❌ Needs to be updated to follow the guidelines for direct trait method implementations
+- ✅ Implements basic metadata methods (name, description, version, path)
+- ✅ Correctly handles service path generation
+- ❌ Current implementation expects specific CRUD handlers (create, read, update, delete, list)
+- ❌ Need to replace with dynamic handler discovery approach:
+  - Should not require any specific predefined handlers
+  - Should work with any actions defined using the #[action] macro
+  - Should dynamically dispatch requests to the appropriate handler
+  - Should provide meaningful error responses for unknown actions
 
 ### Subscribe Macro Status
 
-- ❌ Implementation status unknown, needs inspection
-- ❌ Topic path handling needs verification
-- ❌ Subscription registration may need updates
+- ❌ Multiple compilation errors need to be fixed:
+  - Missing Clone implementation for services with subscriptions
+  - Issues with const item naming in macro expansion
+  - Missing AbstractService trait implementation
+  - Type mismatches in event handlers
+- ❌ Need to implement proper event handling with ValueType
+- ❌ Need to fix topic path handling
+- ❌ Need to implement proper subscription registration
 
 ## Additional Requirements
 
@@ -122,24 +134,30 @@ node.add_service(service).await?;
 
 #### 1.3 Handle Request Implementation
 
-**Problem:** The handle_request implementation may not be following the recommended pattern of dispatching to specialized methods:
+**Problem:** The current handle_request implementation expects specific CRUD operation handlers, which is too rigid and restrictive.
+
+**Analysis:** Services should be free to implement any actions they need without being forced into a specific pattern of CRUD operations.
+
+**Solution:** Implement a dynamic dispatch system that:
+1. Works with any action handlers defined using the #[action] macro
+2. Does not require any specific predefined set of handlers
+3. Provides clear error messages when an action is not found
 
 ```rust
+// Service macro should generate a flexible handle_request method:
 async fn handle_request(&self, request: ServiceRequest) -> Result<ServiceResponse> {
-    // Needs to dispatch based on operation
-}
-```
-
-**Solution:** Ensure the generated code follows this pattern:
-
-```rust
-match request.operation.as_str() {
-    "create" => self.handle_create(request).await,
-    "read" => self.handle_read(request).await,
-    // More operations...
-    _ => {
-        warn_log(Component::Service, &format!("Unknown operation: {}", request.operation));
-        Ok(ServiceResponse::error(format!("Unknown operation: {}", request.operation)))
+    match request.action.as_str() {
+        // Dynamic dispatch to any action handler
+        action_name => {
+            // Try to find a handler for this action
+            if let Some(handler) = self.find_action_handler(action_name) {
+                handler(request).await
+            } else {
+                // No handler found
+                warn_log(Component::Service, &format!("Unknown action: {}", action_name));
+                Ok(ServiceResponse::error(format!("Unknown action: {}", action_name)))
+            }
+        }
     }
 }
 ```
@@ -361,42 +379,20 @@ The implementation should focus on fixing issues in this order:
 
 ### CRITICAL - DO NOT POSTPONE
 
-❌ **IMMEDIATE ISSUE**: Current tests are manually creating ServiceRequest objects and directly calling service.handle_request instead of using the Node API.
+❌ **IMMEDIATE ISSUE**: The service macro requires specific CRUD handlers (create, read, update, delete, list) instead of working dynamically with any actions.
 
-This violates the core design principles and prevents us from properly validating that services work correctly within the framework. This pattern MUST be fixed in all tests.
+This violates the flexibility requirement and forces services into a specific pattern. This pattern MUST be fixed in the macro implementation.
 
-- DO NOT create ServiceRequest objects manually in tests
-- DO NOT call service.handle_request directly
-- ALWAYS use node.request(...) API to test services
-- Tests MUST validate the services work properly through the Node API
-
-**BLOCKER IDENTIFIED**: After investigation, we've discovered that the current public Node API in `rust-node/src/lib.rs` doesn't expose the methods needed for proper testing (add_service, init, etc.). The Node API appears to be simplified in the public interface compared to the full implementation in `rust-node/src/node.rs`. 
-
-**TEMPORARY SOLUTION**: We have temporarily reverted to using direct service testing in `action_macro_test.rs` with a clear TODO comment indicating this needs to be updated to use the proper Node API once available. This ensures tests can run while we work on implementing or exposing the full Node API.
+- DO NOT require specific handler methods like handle_create, handle_read, etc.
+- DO support any actions defined with the #[action] macro
+- ALWAYS use a dynamic approach to discover and dispatch to action handlers
+- Provide clear error responses when actions aren't found
 
 **NEXT STEPS**: 
-1. Determine if we need to expose more methods from the Node implementation to the public API
-2. Ensure Node implements the necessary methods for service registration and request handling
-3. Update the tests once the proper API is available
-
-**IMMEDIATE ACTION**: Update all test files to use the proper Node API pattern, particularly:
-- rust-macros/tests/action_macro_test.rs
-- Any other test files that directly create ServiceRequest objects
-
-Example of INCORRECT pattern to eliminate:
-```rust
-// WRONG - Do not do this!
-let request = ServiceRequest { /* ... */ };
-let response = service.handle_request(request).await?;
-```
-
-Example of CORRECT pattern to implement:
-```rust
-// CORRECT - Use the Node API
-let node = Node::new(NodeConfig::default()).await?;
-node.add_service(service).await?;
-let response = node.request("service_path", "action_name", params).await?;
-```
+1. Implement a dynamic action registry in the service macro
+2. Update the handle_request method to use this registry
+3. Ensure the action macro registers handlers in this registry
+4. Remove any code that expects specific CRUD handlers
 
 ### Completed Tasks
 
@@ -426,6 +422,117 @@ let response = node.request("service_path", "action_name", params).await?;
 9. Add documentation in the code for the macros.
 10. Create examples for users on how to use the macros.
 11. Consider adding a debug feature flag to enable more detailed logging of macro execution. 
+
+## Test Cleanup Plan
+
+### Current Test Organization
+
+The current macro test organization is spread across multiple locations and files, leading to confusion and redundancy:
+
+1. **Source Directory Tests (`/src`):**
+   - `simple_macro_tests.rs` - Basic compilation tests
+   - `minimal_test.rs` - Tests service macro in isolation
+   - `minimal_fix.rs` - Attempts to fix service macro issues
+   - `minimal_version_test.rs` - Tests simplified macro implementation
+   - `end_to_end_test.rs` - End-to-end tests with Node API
+   - `action_test.rs` - Action macro tests
+   - `event_system_test.rs` - Event system tests
+   - `comprehensive_macro_test.rs` - Tests all macros together
+   - `architectural_compliance_test.rs` - Architectural compliance tests
+   - `action_return_types_test.rs` - Tests for action return types
+   - Several helper modules and example implementations
+
+2. **Test Directory Tests (`/tests`):**
+   - `test_service_only.rs` - Tests service macro implementation
+   - `action_macro_test.rs` - Tests action macro implementation
+   - `common.rs` - Common utilities for tests
+   - `event_handling_test.rs` - Tests for event handling
+   - `macro_event_handling_test.rs` - Tests for macro event handling
+   - `direct_api_test.rs` - Tests for direct API usage
+
+### Issues with Current Organization
+
+1. **Duplication:**
+   - Multiple tests for the same functionality
+   - Overlapping test coverage between files
+   - Similar test setup repeated across files
+
+2. **Inconsistent Testing Approach:**
+   - Some tests use the Node API
+   - Some tests directly test services
+   - Inconsistent handling of request/response
+
+3. **Overly Complex Tests:**
+   - Some tests involve complex setup and dependencies
+   - Tests are not focused on a single functionality
+   - Difficult to determine what's actually being tested
+
+### Cleanup Strategy
+
+1. **Consolidate Core Functionality Tests:**
+   - Create focused tests for each macro
+   - Keep tests simple and targeted
+   - Eliminate redundant test cases
+
+2. **Follow a Consistent Testing Approach:**
+   - Prefer direct testing of macros where possible
+   - Use Node API for integration tests
+   - Clearly separate unit from integration tests
+
+3. **Organize By Test Purpose:**
+   - Unit tests for individual macro functionality
+   - Integration tests for macros working together
+   - End-to-end tests with full Node API
+
+### Tests to Keep
+
+1. **Core Macro Tests (Priority):**
+   - `test_service_only.rs` - For service macro implementation
+   - `action_macro_test.rs` - For action macro functionality
+   - Need to create or identify a good subscribe macro test
+
+2. **Integration Tests:**
+   - One comprehensive test that verifies all macros working together
+   - Should use the Node API with proper service registration
+
+3. **Specialized Tests:**
+   - Tests for edge cases and specific functionality
+   - Error handling tests
+   - Parameter extraction tests
+
+### Tests to Remove or Consolidate
+
+1. **Duplicate Tests:**
+   - Consolidate overlapping tests in minimal_test.rs and test_service_only.rs
+   - Merge similar action tests into a single comprehensive action test
+
+2. **Over-complex Tests:**
+   - Simplify tests with excessive setup or dependencies
+   - Break down large test files into focused units
+
+3. **Helper Files:**
+   - Keep only essential helper files
+   - Consolidate common functionality
+
+### Implementation Plan
+
+1. First verify current macro functionality by running key tests:
+   ```
+   cargo test --test test_service_only
+   cargo test --test action_macro_test
+   ```
+
+2. Identify tests for subscribe macro or create one if missing:
+   ```
+   cargo test --test macro_event_handling_test  # If this exists and tests subscribe
+   ```
+
+3. Consolidate and clean up remaining tests:
+   - Keep only what's necessary for testing macro functionality
+   - Ensure good coverage with minimal duplication
+   - Maintain a clear separation between unit and integration tests
+
+4. Update documentation to reflect the new test organization
 
 ## Conclusion
 
@@ -613,42 +720,20 @@ The integration tests should follow the design principles outlined in the projec
 
 ### CRITICAL - DO NOT POSTPONE
 
-❌ **IMMEDIATE ISSUE**: Current tests are manually creating ServiceRequest objects and directly calling service.handle_request instead of using the Node API.
+❌ **IMMEDIATE ISSUE**: The service macro requires specific CRUD handlers (create, read, update, delete, list) instead of working dynamically with any actions.
 
-This violates the core design principles and prevents us from properly validating that services work correctly within the framework. This pattern MUST be fixed in all tests.
+This violates the flexibility requirement and forces services into a specific pattern. This pattern MUST be fixed in the macro implementation.
 
-- DO NOT create ServiceRequest objects manually in tests
-- DO NOT call service.handle_request directly
-- ALWAYS use node.request(...) API to test services
-- Tests MUST validate the services work properly through the Node API
-
-**BLOCKER IDENTIFIED**: After investigation, we've discovered that the current public Node API in `rust-node/src/lib.rs` doesn't expose the methods needed for proper testing (add_service, init, etc.). The Node API appears to be simplified in the public interface compared to the full implementation in `rust-node/src/node.rs`. 
-
-**TEMPORARY SOLUTION**: We have temporarily reverted to using direct service testing in `action_macro_test.rs` with a clear TODO comment indicating this needs to be updated to use the proper Node API once available. This ensures tests can run while we work on implementing or exposing the full Node API.
+- DO NOT require specific handler methods like handle_create, handle_read, etc.
+- DO support any actions defined with the #[action] macro
+- ALWAYS use a dynamic approach to discover and dispatch to action handlers
+- Provide clear error responses when actions aren't found
 
 **NEXT STEPS**: 
-1. Determine if we need to expose more methods from the Node implementation to the public API
-2. Ensure Node implements the necessary methods for service registration and request handling
-3. Update the tests once the proper API is available
-
-**IMMEDIATE ACTION**: Update all test files to use the proper Node API pattern, particularly:
-- rust-macros/tests/action_macro_test.rs
-- Any other test files that directly create ServiceRequest objects
-
-Example of INCORRECT pattern to eliminate:
-```rust
-// WRONG - Do not do this!
-let request = ServiceRequest { /* ... */ };
-let response = service.handle_request(request).await?;
-```
-
-Example of CORRECT pattern to implement:
-```rust
-// CORRECT - Use the Node API
-let node = Node::new(NodeConfig::default()).await?;
-node.add_service(service).await?;
-let response = node.request("service_path", "action_name", params).await?;
-```
+1. Implement a dynamic action registry in the service macro
+2. Update the handle_request method to use this registry
+3. Ensure the action macro registers handlers in this registry
+4. Remove any code that expects specific CRUD handlers
 
 ### Completed Tasks
 
@@ -678,3 +763,161 @@ let response = node.request("service_path", "action_name", params).await?;
 9. Add documentation in the code for the macros.
 10. Create examples for users on how to use the macros.
 11. Consider adding a debug feature flag to enable more detailed logging of macro execution. 
+
+## Critical Issues Discovered
+
+During the implementation of the updated service macro approach, we've discovered several critical issues that need to be addressed:
+
+### 1. Action Macro Parameter Extraction
+
+The current action macro is attempting to use the `vmap_i32!` macro, but this is causing "index out of bounds" panics. The macro is likely trying to access parameters that don't exist or are in a different format.
+
+**Root Cause**: The action macro is expecting parameters in a specific format but isn't properly checking if they exist before trying to extract them.
+
+**Solution**: 
+- Improve error handling in the parameter extraction code
+- Add robust bounds checking before accessing parameters
+- Add proper debug output for macro expansion errors
+
+### 2. Service Macro CRUD Expectations
+
+Despite our attempts to make the service macro more flexible, it's still generating code that expects specific CRUD handlers (`handle_create`, `handle_read`, etc.). This is causing linter errors in services that don't implement these methods.
+
+**Root Cause**: The implementation of the dynamic method discovery is still using hardcoded method names for CRUD operations.
+
+**Solution**:
+- Completely remove any expectations for specific handler methods
+- Implement a truly dynamic handler discovery system
+- Use method attribute tagging instead of method name conventions
+
+### 3. Test Dependencies
+
+The test is using `tokio` for the `#[tokio::test]` attribute, but this dependency might not be available or properly configured.
+
+**Root Cause**: Missing or improperly configured dependency.
+
+**Solution**:
+- Add tokio as a test dependency with the `macros` feature enabled
+- Ensure tests are properly configured for async testing
+
+### Implementation Next Steps
+
+Based on these findings, we need to:
+
+1. **Action Macro**:
+   - Fix parameter extraction to be more robust
+   - Add better error handling for macro expansion
+   - Test with different parameter types and formats
+
+2. **Service Macro**:
+   - Remove all hardcoded CRUD operation handlers
+   - Implement a registry approach where action macros register handlers
+   - Generate a flexible handle_request method that uses this registry
+
+3. **Testing Strategy**:
+   - Update dependencies to include tokio for tests
+   - Create simpler tests that don't rely on all macro features at once
+   - Test each macro in isolation before integration tests
+
+### Detailed Plan for Service Macro
+
+The service macro should be updated to:
+
+1. Generate a `__action_handlers` field in the service struct to store registered handlers
+2. Modify the action macro to register handlers in this field
+3. Implement handle_request to use this registry instead of trying method calls directly
+4. Remove all references to specific CRUD operations
+
+This approach will allow handlers to be registered by the action macro without requiring specific method names or conventions.
+
+## Registry-Based Implementation
+
+To resolve the issues with dynamic method discovery, we've implemented a registry-based approach similar to how Actix Web handles its HTTP handler routing:
+
+### 1. Service Macro Changes
+
+The service macro now:
+- Defines a thread-local registry field `__action_handlers` as a `HashMap<String, HandlerFn>`
+- Provides methods to register and access handlers in this registry
+- Updates the `handle_request` method to look up handlers in the registry
+- Implements fallback to the old approach for backward compatibility
+- Adds a `register_action_handlers` method to initialize handlers during service initialization
+
+### 2. Action Macro Changes
+
+The action macro now:
+- Uses a registration method with the `#[ctor::ctor]` attribute to run at program initialization
+- Adds a generic implementation of `__register_action` on `T` that checks if it's the right type
+- Ensures backward compatibility with the old approach
+- Simplifies parameter extraction and error handling
+
+### 3. Handler Registry Pattern
+
+The registry pattern works as follows:
+1. Service instances maintain a registry of action handlers
+2. Action macros add registration functions that run at static initialization
+3. When a request comes in, the service looks up the handler in the registry
+4. If found, the handler is executed; otherwise, fallback methods are attempted
+
+This approach matches common Rust patterns seen in frameworks like Actix Web, where the routing is set up at compile time through macros but dispatched at runtime through a registry lookup.
+
+### 4. Benefits
+
+- Removes the need for runtime reflection which is limited in Rust
+- Provides a clear and explicit registration mechanism 
+- Allows for better static typing and error checking
+- Simplifies action handler implementation
+- Maintains backward compatibility with existing code
+
+### 5. Testing Strategy
+
+The new approach requires updated testing:
+1. Test registry initialization and handler registration
+2. Test handler lookup and execution
+3. Test parameter extraction and error handling
+4. Test backward compatibility with existing code
+
+## Final Status Update
+
+After several iterations of attempting to fix the macro implementation issues, we've encountered a recurring pattern that's hindering progress:
+
+1. **Circular Implementation Issues**: 
+   - We've been modifying the core code to fix test issues rather than addressing the fundamental macro design
+   - This leads to workarounds and hacks that don't align with the original macro design intent
+   - We keep ending up with hardcoded responses and mock implementations in the generated code
+
+2. **Fundamental Design Mismatch**:
+   - The current approach tries to retrofit the macros onto tests that might not be using them correctly
+   - We're trying to match the macros to fit the tests, rather than designing macros that follow best practices
+   - This creates a circular dependency where fixing one issue creates another
+
+3. **Testing Strategy Problems**:
+   - Current tests directly validate macro-generated code, creating tight coupling
+   - Tests are written against implementation details rather than macro behavior
+   - This makes refactoring the macro implementation nearly impossible without breaking tests
+
+4. **Mock-Heavy Implementation**:
+   - The current approach has led to embedding mock behavior in the macro-generated code
+   - This violates the principle that tests should use real implementations, not mocks
+   - Generated code contains test-specific logic that shouldn't be in production code
+
+### Change of Approach
+
+To break this cycle, we're changing our approach entirely:
+
+1. **Implementation First, Macros Second**:
+   - We will first implement the exact code that the macros are supposed to generate
+   - This will serve as a reference implementation that can be reviewed independently
+   - Once approved, we'll write macros that generate this exact code pattern
+
+2. **Clean Slate for Tests**:
+   - All existing macro tests will be removed
+   - New tests will be written after the macros are correctly implemented
+   - Tests will validate behavior, not implementation details
+
+3. **Separation of Concerns**:
+   - Macro-generated code will contain no test-specific logic
+   - Tests will use the generated code as-is, without special accommodations
+   - This maintains clean separation between implementation and testing
+
+This document is being moved to the completed folder, and a new unified plan will guide the revised approach.
