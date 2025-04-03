@@ -9,14 +9,12 @@
 - ✅ Enhance action macro to handle both direct value and map parameters
 - ✅ Fix subscribe macro to support async handler properly
 - ✅ Develop auto-registration system for actions and subscriptions
+- ✅ Fix API inconsistency in core Node crate (sync vs async methods)
 
 ### In Progress
 - 🔄 Create tests to verify macro functionality against reference implementation
 - 🔄 Implement auto-registration system in macros
-- 🔄 Fix API inconsistency in core Node crate (sync vs async methods)
-
-### Blocked
-- ⏸️ Finalize subscribe macro implementation (waiting on core API changes)
+- 🔄 Update subscribe macro implementation to use synchronous methods
 
 ### To Do
 - ⬜ Clean up remaining linter errors
@@ -24,20 +22,27 @@
 - ⬜ Add documentation and examples to macro code
 - ⬜ Expand test coverage
 
-## API Inconsistency Issue
+## API Inconsistency Issue - RESOLVED
 
-We've identified an important API inconsistency in the core Node crate:
+We identified and fixed an important API inconsistency in the core Node crate:
 
-1. **Synchronous vs Asynchronous Registration**: 
-   - `context.subscribe()` is async and must be awaited
-   - Similar registration methods like `node.add_service()` are not async
-   - This creates an inconsistent API pattern
+1. **Previous Inconsistency**:
+   - `context.subscribe()` was async and required awaiting
+   - Similar registration methods like `node.add_service()` were synchronous
+   - This created an inconsistent API pattern and complicated macro implementation
 
-2. **Impact on Macros**:
-   - Our auto-registration system needs to account for this inconsistency
-   - The subscribe macro implementation is affected by this design
+2. **Solution Implemented**:
+   - Made all subscription methods synchronous
+   - Registration now happens immediately, returning a subscription ID
+   - Any async work (like broker communication) happens in background tasks
+   - This follows a "register now, process later" pattern that is consistent
 
-Before finalizing the macro implementation, we need to fix the core Node API to ensure consistency. We'll create a separate plan file to address this issue.
+3. **Benefits for Macros**:
+   - Simplified the `subscribe` macro implementation
+   - No need to handle awaiting in generated code
+   - More consistent pattern for all registration methods
+
+The fix has been implemented in the core Node API, and tests have been updated to use the new synchronous methods.
 
 ## Auto-Registration System Implementation
 
