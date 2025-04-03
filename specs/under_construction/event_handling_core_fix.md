@@ -41,28 +41,40 @@ context.subscribe("events/text_event", move |payload: ValueType| {
 
 This pattern fundamentally violates our architectural principles around error handling and observability.
 
-## Solution: Fix the Core System
+## Solution: Transition Fully to Async Callbacks
 
-### 1. API Changes: Support Async Callbacks
+We will completely replace the synchronous callback system with a fully async implementation. This is not about supporting both patterns but transitioning entirely to the async pattern for all subscription handlers.
 
-Update the core APIs to properly support async callbacks:
+### 1. API Changes: Replace Sync with Async Callbacks
+
+Replace the current synchronous API with a fully async implementation:
 
 ```rust
 // In NodeRequestHandler trait
-async fn subscribe_async<F>(&self, topic: String, callback: F) -> Result<String>
+async fn subscribe<F>(&self, topic: String, callback: F) -> Result<String>
 where
     F: (Fn(ValueType) -> Pin<Box<dyn Future<Output = Result<()>> + Send>>) + Send + Sync + 'static;
 
 // In RequestContext
-pub async fn subscribe_async<T: Into<String>, F>(
+pub async fn subscribe<T: Into<String>, F, Fut>(
     &self, 
     topic: T,
     callback: F
 ) -> Result<String>
 where
-    F: (Fn(ValueType) -> Pin<Box<dyn Future<Output = Result<()>> + Send>>) + Send + Sync + 'static,
+    F: Fn(ValueType) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Result<()>> + Send + 'static,
 {
-    self.node_handler.subscribe_async(topic.into(), callback).await
+    // Implementation converts the callback to the expected format
+    // then calls the node_handler.subscribe
+    let topic_str = topic.into();
+    
+    // Create a wrapper function that properly handles futures
+    let wrapper = Box::new(move |value: ValueType| -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+        Box::pin(callback(value))
+    });
+    
+    self.node_handler.subscribe(topic_str, wrapper).await
 }
 ```
 
@@ -70,7 +82,7 @@ where
 
 When processing events, the core system should:
 
-1. Await the futures returned by async callbacks ( this shuold not impact other areas of the core.. the system shuoold continue to process other events in parallel and not wait for one event ot complete to then handle other.. this is related to make sure the rsuitl of a event handler is properly handled.)
+1. Await the futures returned by async callbacks (this should not impact other areas of the core - the system should continue to process other events in parallel)
 2. Track success/failure for each handler
 3. Log errors consistently
 4. Collect performance metrics
@@ -79,16 +91,15 @@ When processing events, the core system should:
 
 Update the subscription registry to:
 
-1. Track whether a handler is sync or async
-2. Store success/failure metrics
-3. Track processing time
-4. Support configurable behavior (required success count, etc.)
+1. Store success/failure metrics
+2. Track processing time
+3. Support configurable behavior (required success count, etc.)
 
 ## Implementation Requirements
 
-1. **Backward Compatibility**: Keep supporting synchronous callbacks
-2. **Proper Type Detection**: Auto-detect async methods in macros
-3. **Consistent API**: Make both sync and async subscription methods work similarly
+1. **No Backward Compatibility**: Remove support for synchronous callbacks entirely
+2. **Proper Type Detection**: Detect and reject non-async methods in macros
+3. **Consistent API**: Ensure clear, idiomatic async patterns
 4. **Error Propagation**: Ensure errors are properly captured and logged
 5. **Metrics Collection**: Add metrics for handler performance
 
@@ -101,30 +112,76 @@ Update the subscription registry to:
 
 ## Implementation Approach
 
-1. Fix the core system first rather than building more workarounds
-2. Update macros to detect async methods and use the appropriate API
-3. Create comprehensive tests to verify both synchronous and asynchronous patterns
+1. Modify the core API to only support async callbacks
+2. Update all existing code to use the new async pattern
+3. Remove all synchronous callback support
+4. Update macros to generate async-compliant code
+5. Create comprehensive tests that verify the async pattern
 
 ## Implementation Tasks
 
 1. **NodeRequestHandler Updates**
-   - Add `subscribe_async` method to trait
-   - Implement in all concrete implementations
+   - Replace synchronous `subscribe` method with async implementation
+   - Update all concrete implementations to use async callbacks
+   - Remove any synchronous callback handling code
 
 2. **ServiceRegistry Updates**
-   - Add async subscription support
+   - Replace synchronous subscription mechanisms
    - Enhance metadata tracking
    - Improve error handling
 
 3. **RequestContext Updates**
-   - Add `subscribe_async` method
-   - Update documentation
+   - Update `subscribe` method to only accept async callbacks
+   - Update documentation to reflect the change to async-only
 
 4. **Macro Updates**
-   - Modify `#[subscribe]` to detect async methods
-   - Generate proper code based on method type
+   - Modify `#[subscribe]` to require async methods
+   - Generate proper async code based on method type
+   - Add compile-time errors for non-async methods
 
-5. **Testing**
-   - Test both sync and async patterns
+5. **Migration Tasks**
+   - Identify all services using synchronous callbacks
+   - Convert all existing subscriptions to use async pattern
+   - Update any test code to use async callbacks
+   - Remove all synchronous callback workarounds (tokio::spawn)
+
+6. **Testing**
+   - Test async patterns
    - Verify error handling
-   - Measure performance 
+   - Measure performance
+
+## Migration Approach for Existing Code
+
+For each service using the synchronous callback pattern:
+
+1. Identify all subscription handlers
+2. Convert handlers to use async syntax:
+
+```rust
+// OLD (synchronous callback with spawn)
+context.subscribe("events/text_event", move |payload: ValueType| {
+    // Spawn task to handle async work
+    tokio::spawn(async move {
+        if let Err(e) = service.handle_text_event(text).await {
+            // Local error handling
+        }
+    });
+    
+    Ok(())
+}).await?;
+
+// NEW (async callback)
+context.subscribe("events/text_event", move |payload: ValueType| async move {
+    // Direct async handling
+    match service.handle_text_event(text).await {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            // Error is now properly propagated to the system
+            Err(e)
+        }
+    }
+}).await?;
+```
+
+3. Test the converted handlers thoroughly
+4. Update any related documentation 
