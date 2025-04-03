@@ -9,18 +9,24 @@ We have identified an important inconsistency in the Node API regarding registra
    - Similar registration methods like `node.add_service(service)` are synchronous
    - This creates an inconsistent pattern in our API design
 
-2. **Root Cause Analysis**:
-   - `context.subscribe()` is likely async because it might:
-     - Need to communicate with a message broker
-     - Check if the topic exists
-     - Set up communication channels
-     - Wait for confirmation from the event system
-   - However, conceptually it's just registering a callback to be executed later
+2. **Root Cause Analysis - Incorrect Assumptions**:
+   - ~~`context.subscribe()` is likely async because it might:~~
+   - ~~Need to communicate with a message broker~~
+   - ~~Check if the topic exists~~
+   - ~~Set up communication channels~~
+   - ~~Wait for confirmation from the event system~~
 
-3. **Design Principles**:
+3. **Correct Design Approach**:
+   - `context.subscribe()` should be synchronous
+   - It should only add the subscription to a local registry
+   - Any further processing (like broker communication, topic validation, etc.) should happen later in separate threads/processes
+   - This follows a "register now, process later" pattern that is consistent with other registration methods
+
+4. **Design Principles**:
    - Registration methods should follow a consistent pattern
-   - If they're just registering callbacks, they should be synchronous
-   - If they need to perform actual work, they should be async
+   - Registration should be a local, synchronous operation that simply stores callbacks
+   - Actual event handling, system communication, and setup should happen asynchronously in the background
+   - Only methods that need to return processed results should be async
 
 ## Proposed Solution
 
@@ -28,8 +34,8 @@ We will make the following changes to the Node API:
 
 1. **Make Subscription Methods Synchronous**:
    - Modify `RequestContext.subscribe()` to be synchronous
-   - The async work should happen inside the method, not exposed to the caller
-   - The callback itself remains async (because handlers need to be async)
+   - The method should only add the callback to the local registry
+   - Any actual processing should be handled separately in background tasks
 
 2. **Implementation Plan**:
    ```rust
@@ -41,35 +47,49 @@ We will make the following changes to the Node API:
    { /* ... */ }
    
    // New implementation (sync)
-   pub fn subscribe<F, Fut>(&self, topic: &str, callback: F) -> Result<()>
+   pub fn subscribe<F, Fut>(&self, topic: &str, callback: F) -> Result<String>
    where
        F: Fn(ValueType) -> Fut + Send + Sync + 'static,
        Fut: Future<Output = Result<()>> + Send + 'static,
-   { /* ... */ }
+   { 
+       // Simply store the callback in a registry
+       // Return the subscription ID immediately 
+       // Any required async work happens in background tasks
+   }
    ```
 
-3. **Internal Changes**:
-   - If async work is needed inside the method, it can be:
-     - Performed in a background task with `tokio::spawn`
-     - Or using a sync-over-async pattern if truly needed
-     - Or using a channel-based approach to handle the registration
+3. **Internal Implementation**:
+   - The subscription method should:
+     - Generate a subscription ID
+     - Store the callback in the appropriate registry
+     - Return the ID immediately
+   - Any validation, setup, or communication should happen in background tasks or when events are actually published
+   - This approach properly separates registration from execution
 
 4. **API Design Guidelines Update**:
    - Add clear guidelines for when methods should be async vs sync
-   - Registration methods should generally be synchronous
+   - Registration methods should always be synchronous
    - Only methods that truly need to await results should be async
 
 ## Implementation Steps
 
 1. **Core Changes**:
-   - Locate all subscription-related async methods in the codebase
-   - Modify them to be synchronous (removing the `async` keyword)
-   - Update the internal implementation to handle any required async work
+   - Locate all subscription-related async methods in the codebase:
+     - `RequestContext.subscribe()`
+     - `RequestContext.subscribe_with_options()`
+     - `RequestContext.once()`
+     - `Node.subscribe()`
+     - `Node.subscribe_with_options()`
+     - `Node.once()`
+     - `ServiceRegistry.subscribe()`
+     - `ServiceRegistry.subscribe_with_options()`
+   - Convert them to synchronous methods
+   - Move any async processing into background tasks
 
 2. **Affected Files**:
-   - `rust-node/src/request_context.rs` (primary location of subscription methods)
-   - `rust-node/src/services/abstract_service.rs` (if there are subscription methods)
-   - `rust-node/src/services/service_registry.rs` (for event handling)
+   - `rust-node/src/services/mod.rs` (for RequestContext methods)
+   - `rust-node/src/node.rs` (for Node methods)
+   - `rust-node/src/services/service_registry.rs` (for ServiceRegistry methods)
 
 3. **Testing**:
    - Update existing tests that use `await` with subscription methods
@@ -79,6 +99,7 @@ We will make the following changes to the Node API:
 4. **Documentation**:
    - Update API docs to reflect the new synchronous design
    - Add notes about the async callbacks still being supported
+   - Document the "register now, process later" pattern
 
 5. **Migration Plan**:
    - This is a breaking change for anyone using `.await` with subscription methods
@@ -103,6 +124,7 @@ We will make the following changes to the Node API:
    - Simpler macro implementation
    - More intuitive design (register callback now, execute later)
    - Better alignment with Rust event handler patterns
+   - Improved separation of concerns (registration vs. execution)
 
 ## Timeline
 
