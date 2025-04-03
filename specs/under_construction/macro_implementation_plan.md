@@ -9,17 +9,27 @@
   - ✅ Fixed all issues with StringService implementation (handling Option<ValueType> data)
   - ✅ Successfully tested with Node API
   - ✅ Removed duplicate code from docs directory
-  - ✅ Identified critical issue with event handling in subscribe callbacks (see "New Issue" below)
+  - ✅ Identified critical issue with event handling in subscribe callbacks
+- ✅ Core System Fixes
+  - ✅ Fixed the Node API event handling system (event_handling_core_fix.md now in completed folder)
+  - ✅ Implemented async-only callbacks for subscriptions
+  - ✅ Updated ServiceRegistry to properly handle async callbacks
+  - ✅ Updated RequestContext to support the new async subscription API
+- ✅ Macro Implementation Foundations
+  - ✅ Initial service macro implementation that generates AbstractService implementation
+  - ✅ Initial action macro implementation for registering action handlers
+  - ✅ Initial subscribe macro implementation with async event callbacks
 
 ### Tasks In Progress:
-- 🔄 Macro Development
-  - 🔄 Update macros to generate code matching the reference implementation
-  - 🔄 Fix the service macro to support dynamic action handlers
+- 🔄 Macro Refinement
+  - 🔄 Enhance the service macro to add ActionRegistry field and registerActions method
+  - 🔄 Improve the action macro to properly handle different parameter types
+  - 🔄 Enhance the subscribe macro to handle different payload formats
 
 ### Tasks To Do:
 - ⬜ Macro Development (continued)
-  - ⬜ Update action macro to handle different parameter types
-  - ⬜ Update subscribe macro to implement proper event callback structure
+  - ⬜ Complete parameter extraction logic in action handlers
+  - ⬜ Create an auto-registration system for actions and subscriptions
   - ⬜ Ensure macros produce exactly the same code as the manually written version
   - ⬜ Thoroughly test the macros with simple input cases
 
@@ -28,13 +38,15 @@
   - ⬜ Focus on end-to-end testing with the Node API
   - ⬜ Demonstrate how services should be used in real-world scenarios
 
-## New Issue: Event Handler Limitations in Core System
+## ~~New Issue: Event Handler Limitations in Core System~~ (FIXED)
 
-During our reference implementation work, we discovered a fundamental issue in the Node API subscription system. The core system needs to be fixed rather than continuing to use workarounds.
+~~During our reference implementation work, we discovered a fundamental issue in the Node API subscription system. The core system needs to be fixed rather than continuing to use workarounds.~~
 
-**For details, see:** `event_handling_core_fix.md`
+~~**For details, see:** `event_handling_core_fix.md`~~
 
-This issue affects the final implementation of the `#[subscribe]` macro and requires changes to the core Node API.
+~~This issue affects the final implementation of the `#[subscribe]` macro and requires changes to the core Node API.~~
+
+**Update:** This issue has been fixed! The core system now supports async-only callbacks for subscriptions. See `rust-docs/specs/completed/event_handling_core_fix.md` for details on the implemented solution.
 
 ## Background and Lessons Learned
 
@@ -59,9 +71,9 @@ After several attempts to fix the macro implementation in the codebase, we've id
 
 Our approach:
 
-1. Fix the core Node API event handling system (see `event_handling_core_fix.md`)
-2. Complete the macro implementation based on the reference implementation
-3. Create new tests that verify behavior, not implementation details
+1. ✅ Fix the core Node API event handling system (completed)
+2. 🔄 Complete the macro implementation based on the reference implementation (in progress)
+3. ⬜ Create new tests that verify behavior, not implementation details
 
 ### Reference Implementation (COMPLETED)
 
@@ -74,17 +86,17 @@ We have successfully completed a working reference implementation in `rust-macro
 
 ### Macro Development Tasks
 
-1. Create macros that generate code matching the reference implementation
-2. Focus on clean, minimal code generation without special cases
-3. Ensure macros produce exactly the same code as the manually written version
-4. Thoroughly test the macros with simple input cases
+1. 🔄 Create macros that generate code matching the reference implementation (in progress)
+2. ✅ Focus on clean, minimal code generation without special cases
+3. 🔄 Ensure macros produce exactly the same code as the manually written version (in progress)
+4. ⬜ Thoroughly test the macros with simple input cases
 
 ### Test Development Tasks
 
-1. Remove all existing macro tests to avoid old constraints
-2. Create new tests that verify macro behavior, not implementation details
-3. Focus on end-to-end testing with the Node API
-4. Demonstrate how services should be used in real-world scenarios
+1. ⬜ Remove all existing macro tests to avoid old constraints
+2. ⬜ Create new tests that verify macro behavior, not implementation details
+3. ⬜ Focus on end-to-end testing with the Node API
+4. ⬜ Demonstrate how services should be used in real-world scenarios
 
 ## Implementation Requirements
 
@@ -94,41 +106,41 @@ Based on our reference implementation, the macros should generate code that foll
 
 The `#[service]` macro should generate:
 
-1. A proper implementation of the `AbstractService` trait with methods for:
-   - `name()`, `path()`, `description()`, `version()`, `state()`
-   - `actions()` - Returning a list of registered actions
-   - `init()` - Setting up subscription handlers
-   - `start()` and `stop()` - Service lifecycle management
-   - `handle_request()` - Request handling and dispatch
+1. ✅ A proper implementation of the `AbstractService` trait with methods for:
+   - ✅ `name()`, `path()`, `description()`, `version()`, `state()`
+   - ✅ `actions()` - Returning a list of registered actions
+   - ✅ `init()` - Setting up subscription handlers
+   - ✅ `start()` and `stop()` - Service lifecycle management
+   - ✅ `handle_request()` - Request handling and dispatch
 
-2. A request dispatch system that:
-   - Maps incoming requests to the appropriate handler based on the action name
-   - Provides clear error messages when an action is not found
-   - Uses a registry of action handlers
+2. 🔄 A request dispatch system that:
+   - ✅ Maps incoming requests to the appropriate handler based on the action name
+   - ✅ Provides clear error messages when an action is not found
+   - 🔄 Uses a registry of action handlers
 
-3. A cloneable service structure that works with async event handlers
+3. ✅ A cloneable service structure that works with async event handlers
 
 ### Action Macro Requirements
 
 The `#[action]` macro should:
 
-1. Register an action handler in the service's action registry
-2. Generate parameter extraction code for both:
-   - Direct string/numeric parameters (`request.data` as `ValueType::String` or `ValueType::Number`)
-   - Map parameters (`request.data` as `ValueType::Map`)
-3. Properly handle `Option<ValueType>` for the data field
-4. Wrap the returned value in a `ServiceResponse` with appropriate status and message
+1. ✅ Register an action handler in the service's action registry
+2. 🔄 Generate parameter extraction code for both:
+   - 🔄 Direct string/numeric parameters (`request.data` as `ValueType::String` or `ValueType::Number`)
+   - 🔄 Map parameters (`request.data` as `ValueType::Map`)
+3. ⬜ Properly handle `Option<ValueType>` for the data field
+4. ✅ Wrap the returned value in a `ServiceResponse` with appropriate status and message
 
 ### Subscribe Macro Requirements
 
 The `#[subscribe]` macro should:
 
-1. Generate a subscription registration method that runs during service initialization
-2. Create a callback that extracts parameters from the event payload
-3. Handle different payload formats (direct values vs maps)
-4. Implement proper async event handlers with error handling
-5. Ensure thread safety for event handlers through proper use of Arc and Clone
-6. Eventually use the new async subscription API after the core system is fixed
+1. ✅ Generate a subscription registration method that runs during service initialization
+2. 🔄 Create a callback that extracts parameters from the event payload
+3. 🔄 Handle different payload formats (direct values vs maps)
+4. ✅ Implement proper async event handlers with error handling
+5. ✅ Ensure thread safety for event handlers through proper use of Arc and Clone
+6. ✅ Use the new async subscription API (core system now fixed)
 
 ## Testing Approach
 
@@ -139,7 +151,10 @@ The `#[subscribe]` macro should:
 
 ## Next Steps
 
-1. Fix the core event handling system (highest priority)
-2. Complete the macro implementation updates
-3. Create comprehensive tests
-4. Document the new approach and patterns 
+1. ✅ Fix the core Node API event handling system (COMPLETED)
+2. 🔄 Complete the macro implementation updates (IN PROGRESS)
+   - Add parameter extraction logic to action handlers
+   - Add auto-registration system for actions and subscriptions
+   - Ensure proper testing coverage
+3. ⬜ Create comprehensive tests
+4. ⬜ Document the new approach and patterns 
