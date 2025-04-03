@@ -13,12 +13,31 @@
 ### In Progress
 - 🔄 Create tests to verify macro functionality against reference implementation
 - 🔄 Implement auto-registration system in macros
+- 🔄 Fix API inconsistency in core Node crate (sync vs async methods)
+
+### Blocked
+- ⏸️ Finalize subscribe macro implementation (waiting on core API changes)
 
 ### To Do
 - ⬜ Clean up remaining linter errors
 - ⬜ Further enhance the service macro
 - ⬜ Add documentation and examples to macro code
 - ⬜ Expand test coverage
+
+## API Inconsistency Issue
+
+We've identified an important API inconsistency in the core Node crate:
+
+1. **Synchronous vs Asynchronous Registration**: 
+   - `context.subscribe()` is async and must be awaited
+   - Similar registration methods like `node.add_service()` are not async
+   - This creates an inconsistent API pattern
+
+2. **Impact on Macros**:
+   - Our auto-registration system needs to account for this inconsistency
+   - The subscribe macro implementation is affected by this design
+
+Before finalizing the macro implementation, we need to fix the core Node API to ensure consistency. We'll create a separate plan file to address this issue.
 
 ## Auto-Registration System Implementation
 
