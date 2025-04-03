@@ -19,19 +19,23 @@
   - ✅ Initial service macro implementation that generates AbstractService implementation
   - ✅ Initial action macro implementation for registering action handlers
   - ✅ Initial subscribe macro implementation with async event callbacks
+- ✅ Macro Refinements
+  - ✅ Enhanced service macro to add ActionRegistry field and register_actions method
+  - ✅ Added parameter extraction logic to action handlers for both direct and map-based parameters
+  - ✅ Improved subscribe macro to handle different payload formats (direct values, maps)
+  - ✅ Added proper error handling for parameter extraction
 
 ### Tasks In Progress:
-- 🔄 Macro Refinement
-  - 🔄 Enhance the service macro to add ActionRegistry field and registerActions method
-  - 🔄 Improve the action macro to properly handle different parameter types
-  - 🔄 Enhance the subscribe macro to handle different payload formats
+- 🔄 Macro Integration
+  - 🔄 Create an auto-registration system for actions and subscriptions
+  - 🔄 Handle custom parameter types beyond strings
+  - 🔄 Implement proper handling of Option<ValueType> for data fields
 
 ### Tasks To Do:
-- ⬜ Macro Development (continued)
-  - ⬜ Complete parameter extraction logic in action handlers
-  - ⬜ Create an auto-registration system for actions and subscriptions
+- ⬜ Testing
+  - ⬜ Create new macro test implementation using the enhanced macros
   - ⬜ Ensure macros produce exactly the same code as the manually written version
-  - ⬜ Thoroughly test the macros with simple input cases
+  - ⬜ Create comprehensive tests that verify macro behavior
 
 - ⬜ Test Development
   - ⬜ Create new tests that verify macro behavior, not implementation details
@@ -72,8 +76,8 @@ After several attempts to fix the macro implementation in the codebase, we've id
 Our approach:
 
 1. ✅ Fix the core Node API event handling system (completed)
-2. 🔄 Complete the macro implementation based on the reference implementation (in progress)
-3. ⬜ Create new tests that verify behavior, not implementation details
+2. ✅ Complete the macro implementation based on the reference implementation (in progress)
+3. 🔄 Create new tests that verify behavior, not implementation details (next step)
 
 ### Reference Implementation (COMPLETED)
 
@@ -86,10 +90,10 @@ We have successfully completed a working reference implementation in `rust-macro
 
 ### Macro Development Tasks
 
-1. 🔄 Create macros that generate code matching the reference implementation (in progress)
+1. ✅ Create macros that generate code matching the reference implementation
 2. ✅ Focus on clean, minimal code generation without special cases
 3. 🔄 Ensure macros produce exactly the same code as the manually written version (in progress)
-4. ⬜ Thoroughly test the macros with simple input cases
+4. 🔄 Thoroughly test the macros with simple input cases
 
 ### Test Development Tasks
 
@@ -113,10 +117,10 @@ The `#[service]` macro should generate:
    - ✅ `start()` and `stop()` - Service lifecycle management
    - ✅ `handle_request()` - Request handling and dispatch
 
-2. 🔄 A request dispatch system that:
+2. ✅ A request dispatch system that:
    - ✅ Maps incoming requests to the appropriate handler based on the action name
    - ✅ Provides clear error messages when an action is not found
-   - 🔄 Uses a registry of action handlers
+   - ✅ Uses a registry of action handlers
 
 3. ✅ A cloneable service structure that works with async event handlers
 
@@ -125,10 +129,10 @@ The `#[service]` macro should generate:
 The `#[action]` macro should:
 
 1. ✅ Register an action handler in the service's action registry
-2. 🔄 Generate parameter extraction code for both:
-   - 🔄 Direct string/numeric parameters (`request.data` as `ValueType::String` or `ValueType::Number`)
-   - 🔄 Map parameters (`request.data` as `ValueType::Map`)
-3. ⬜ Properly handle `Option<ValueType>` for the data field
+2. ✅ Generate parameter extraction code for both:
+   - ✅ Direct string/numeric parameters (`request.data` as `ValueType::String` or `ValueType::Number`)
+   - ✅ Map parameters (`request.data` as `ValueType::Map`)
+3. 🔄 Properly handle `Option<ValueType>` for the data field
 4. ✅ Wrap the returned value in a `ServiceResponse` with appropriate status and message
 
 ### Subscribe Macro Requirements
@@ -136,8 +140,8 @@ The `#[action]` macro should:
 The `#[subscribe]` macro should:
 
 1. ✅ Generate a subscription registration method that runs during service initialization
-2. 🔄 Create a callback that extracts parameters from the event payload
-3. 🔄 Handle different payload formats (direct values vs maps)
+2. ✅ Create a callback that extracts parameters from the event payload
+3. ✅ Handle different payload formats (direct values vs maps)
 4. ✅ Implement proper async event handlers with error handling
 5. ✅ Ensure thread safety for event handlers through proper use of Arc and Clone
 6. ✅ Use the new async subscription API (core system now fixed)
@@ -152,9 +156,12 @@ The `#[subscribe]` macro should:
 ## Next Steps
 
 1. ✅ Fix the core Node API event handling system (COMPLETED)
-2. 🔄 Complete the macro implementation updates (IN PROGRESS)
-   - Add parameter extraction logic to action handlers
-   - Add auto-registration system for actions and subscriptions
-   - Ensure proper testing coverage
-3. ⬜ Create comprehensive tests
-4. ⬜ Document the new approach and patterns 
+2. ✅ Enhance the macro implementation (COMPLETED)
+   - ✅ Add parameter extraction logic to action handlers
+   - ✅ Add ActionRegistry field to service struct
+   - ✅ Improve payload handling in subscribe
+3. 🔄 Create auto-registration system for actions and subscriptions (IN PROGRESS)
+   - Integration between register_actions and individual action registration methods
+   - Integration between register_subscriptions and individual subscription handlers
+4. ⬜ Create comprehensive tests
+5. ⬜ Document the new approach and patterns 
