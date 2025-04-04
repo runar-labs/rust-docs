@@ -56,6 +56,26 @@ We have successfully implemented the changes to make subscription methods synchr
 
 These changes have resulted in a more consistent API design where registration operations are synchronous and processing operations are asynchronous. This provides a clearer separation of concerns and follows the "register now, process later" pattern found throughout the rest of the codebase.
 
+## Bug Identification After Refactoring
+
+After implementing these changes, we identified an issue with the event delivery mechanism:
+
+1. **Issues Discovered**:
+   - Race condition in subscription registration: Moving registration to background tasks meant subscribers might not be fully registered before events were published
+   - Subscription callbacks were not being properly executed: The futures created by the callback functions were never being awaited
+   - Anonymous subscribers were registered but not properly found during event processing
+
+2. **Root Cause Analysis**:
+   - When we made subscription methods synchronous, we incorrectly implemented the background task mechanism for registration
+   - The callback execution code in the publish method was not properly awaiting the futures returned by event callbacks
+   - The implementation change broke the pub/sub model by failing to actually execute the callback futures
+
+3. **Implemented Fixes**:
+   - Modified the subscription registration to happen immediately within the synchronous method rather than in a background task
+   - Updated the callback execution logic to properly spawn and await futures
+   - Removed special case handling code that was added as a workaround
+   - Improved error handling and logging
+
 ## Next Steps
 
 1. **Documentation Updates**:
@@ -71,4 +91,6 @@ These changes have resulted in a more consistent API design where registration o
 
 ## Conclusion
 
-This change has created a more consistent, intuitive API for both manual service implementation and macro-based services. By separating registration from execution, we've clarified the design pattern and made it easier to understand the system architecture. 
+This change has created a more consistent, intuitive API for both manual service implementation and macro-based services. By separating registration from execution, we've clarified the design pattern and made it easier to understand the system architecture.
+
+The issues identified after the initial refactoring have been properly fixed at their root cause rather than through special case handling. This maintains the generic nature of the subscription system while ensuring reliable event delivery. 

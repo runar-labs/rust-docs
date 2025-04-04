@@ -1,7 +1,7 @@
 When fixing issues or implementing new features, follow these steps:
 
 - Before making any change, always check the design docs in the `rust-docs/markdown/` folder
-- Create a detailed plan and save it in a file under `rust-docs/specs/under_construction/`
+- Create or update the detailed plan and save it in a file under `rust-docs/specs/under_construction/` - avoid creating multiple files.
 - As you progress, keep the detailed plan up to date with:
   - Progress
   - Issues encountered
@@ -697,7 +697,7 @@ The system follows specific rules for how paths and topics work in service commu
 
 ### Path Structure Rules
 
-1. **Standard Path Format**: `<service>/<action>` 
+1. **Standard Path Format**: `<service_path>/<action>` 
    - This is the minimum required format when calling an action or publishing an event
    - Example: `user_service/create_user`, `data_service/update_record`
    - You can only omit the service name when calling actions or publishing events on the same service. E.g. for the user service action login, it can do context.publish("login_failed", ...) and this event will be translated by the context (which know the service name) to `user_service/login_failed`
@@ -706,10 +706,43 @@ The system follows specific rules for how paths and topics work in service commu
    - The system automatically adds the service name during registration
    - Example: In a service named `user_service`, you can declare an action as just `create_user`
 
-3. **Full Path Format**: `<network>/<service>/<action>`
+3. **Full Path Format**: `<network>/<service_path>/<action>`
    - Used when calling a service on another network
    - This format is not fully implemented in the current system
    - No tests currently exist for this functionality
+
+### Service Name vs Service Path (IMPORTANT)
+
+A common source of bugs in the system is confusion between service **name** and service **path**:
+
+- **Service Name**: A human-readable identifier that distinguishes the service instance (e.g., "explorer", "alpha").
+- **Service Path**: The routing path used by the system for requests and events (e.g., "ship", "base").
+
+When making requests or publishing events, ALWAYS use the service **path**, not the service **name**:
+
+```rust
+// CORRECT: Using the service path for routing
+node.request("ship/land", data)  // ship is the path
+
+// INCORRECT: Using the service name for routing
+node.request("explorer/land", data)  // explorer is just the name, not the path
+```
+
+This distinction is critical because:
+1. The system routes messages based on the service path
+2. Multiple service instances can share the same path but have different names
+3. Events published within a service are automatically prefixed with the service path
+
+When implementing a service, clearly distinguish between name and path:
+```rust
+pub fn new(name: &str) -> Self {
+    Self {
+        name: name.to_string(),  // Instance name (e.g., "explorer")
+        path: "ship".to_string(), // Routing path (e.g., "ship")
+        // ...
+    }
+}
+```
 
 ### Path Usage Guidelines
 
