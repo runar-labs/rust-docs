@@ -282,7 +282,7 @@ An important aspect missing from the current implementation is proper Node lifec
 - [ ] Implement EventContext for callbacks
 - [ ] Implement metrics system
 - [ ] Complete API cleanup for consistency
-- [ ] Implement lifecycle state tracking
+- [x] Implement lifecycle state tracking
 
 ## Testing Strategy
 
@@ -303,11 +303,12 @@ The immediate next steps are:
 3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
 4. ✅ Fix non-blocking list_services implementation (COMPLETED)
 5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
-6. Implement EventContext to pass to callbacks
-7. Implement the metrics collection framework in Node
-8. Create the publish_with_options method with configurable delivery options
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement EventContext to pass to callbacks
+8. Implement the metrics collection framework in Node
+9. Create the publish_with_options method with configurable delivery options
 
-All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods represents a key milestone in the Node's capability to properly manage service lifecycles. The remaining work focuses on enhancing the event system, implementing metrics collection, and completing the node lifecycle state tracking.
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. The remaining work focuses on enhancing the event system and implementing metrics collection.
 
 ## ServiceRegistry API Changes
 
