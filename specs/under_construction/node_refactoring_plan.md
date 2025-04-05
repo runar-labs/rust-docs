@@ -238,7 +238,7 @@ An important aspect missing from the current implementation is proper Node lifec
    - [ ] Add service performance metrics
    - [ ] Create configurable metrics storage
 
-8. **Phase 8: Node Lifecycle Management**
+8. **Phase 8: Node Lifecycle Management** ✅
    - [x] Implement a proper `start()` method in Node
    - [x] Implement service startup orchestration (calling start on all services)
    - [x] Implement a clean `stop()` method in Node
@@ -246,6 +246,26 @@ An important aspect missing from the current implementation is proper Node lifec
    - [x] Add lifecycle state tracking for services
    - [x] Ensure idempotent startup and shutdown
    - [x] Add tests for Node lifecycle methods
+
+9. **Phase 9: Internal Services**
+   - [ ] Design and implement the `RegistryService`
+   - [ ] Create automatic registration mechanism for internal services
+   - [ ] Implement service metadata retrieval endpoints
+   - [ ] Add service state retrieval through request interface
+   - [ ] Create service action and event listing endpoints
+   - [ ] Create tests for the registry service
+   - [ ] Update existing tests to use the registry service pattern
+
+10. **Phase 10: Event System Enhancements**
+    - [ ] Implement publish_with_options with delivery configuration
+    - [ ] Move pending event storage to Node
+    - [ ] Create proper event retention policies
+    - [ ] Update callback signature to include EventContext
+
+11. **Phase 11: Metrics System**
+    - [ ] Implement metrics collection framework 
+    - [ ] Add service performance metrics
+    - [ ] Create configurable metrics storage
 
 ## Progress Tracking
 
@@ -277,12 +297,13 @@ An important aspect missing from the current implementation is proper Node lifec
 - [x] Implement Node.stop() method for clean shutdown
 - [x] Add service startup orchestration
 - [x] Add service shutdown orchestration
- 
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
 - [ ] Implement publish_with_options
 - [ ] Implement EventContext for callbacks
 - [ ] Implement metrics system
 - [ ] Complete API cleanup for consistency
-- [x] Implement lifecycle state tracking
 
 ## Testing Strategy
 
@@ -304,11 +325,14 @@ The immediate next steps are:
 4. ✅ Fix non-blocking list_services implementation (COMPLETED)
 5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
 6. ✅ Implement lifecycle state tracking (COMPLETED)
-7. Implement EventContext to pass to callbacks
-8. Implement the metrics collection framework in Node
-9. Create the publish_with_options method with configurable delivery options
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
 
-All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. The remaining work focuses on enhancing the event system and implementing metrics collection.
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
 
 ## ServiceRegistry API Changes
 
@@ -343,3 +367,5491 @@ This change simplifies the API by:
 ### Key Architectural Principles
 
 // ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
+            // Create a map for this service
+            let mut service_data = std::collections::HashMap::new();
+            service_data.insert("path".to_string(), ValueType::String(service_path.clone()));
+            
+            // Add state if available
+            if let Some(state) = state {
+                service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+            }
+            
+            services_data.push(ValueType::Map(service_data));
+        }
+        
+        Ok(ServiceResponse::ok(ValueType::Array(services_data)))
+    }
+    
+    /// Handle request for specific service information
+    async fn handle_service_info(&self, service_path: &str, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get service state
+        let state = self.node.get_service_state(service_path).await;
+        
+        // Check if service exists
+        if !self.node.list_services().contains(&service_path.to_string()) {
+            return Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path)));
+        }
+        
+        // Create response data
+        let mut service_data = std::collections::HashMap::new();
+        service_data.insert("path".to_string(), ValueType::String(service_path.to_string()));
+        
+        // Add state if available
+        if let Some(state) = state {
+            service_data.insert("state".to_string(), ValueType::String(format!("{:?}", state)));
+        }
+        
+        // TODO: Add more service metadata (actions, events, etc.)
+        
+        Ok(ServiceResponse::ok(ValueType::Map(service_data)))
+    }
+}
+
+#[async_trait]
+impl AbstractService for RegistryService {
+    /// Get the service name
+    fn name(&self) -> &str {
+        &self.name
+    }
+    
+    /// Get the service path
+    fn path(&self) -> &str {
+        &self.path
+    }
+    
+    /// Initialize the service
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        // Register actions for accessing registry information
+        context.register_action("services", 
+            Box::new(|params, ctx| Box::pin(self.handle_list_services(params, ctx))))
+            .await?;
+        
+        // Register pattern-based action for service info
+        context.register_action_pattern("services/{service_path}", 
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(self.handle_service_info(service_path, params, ctx))
+            }))
+            .await?;
+        
+        // Register more specific actions
+        context.register_action_pattern("services/{service_path}/state",
+            Box::new(|params, ctx, path_params| {
+                let service_path = path_params.get("service_path").unwrap_or_default();
+                Box::pin(async move {
+                    // Get service state only
+                    let state = self.node.get_service_state(service_path).await;
+                    match state {
+                        Some(state) => Ok(ServiceResponse::ok(ValueType::String(format!("{:?}", state)))),
+                        None => Ok(ServiceResponse::error(404, &format!("Service '{}' not found", service_path))),
+                    }
+                })
+            }))
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Start the service
+    async fn start(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to do on start - registry service is always ready
+        Ok(())
+    }
+    
+    /// Stop the service
+    async fn stop(&self, _context: LifecycleContext) -> Result<()> {
+        // Nothing to clean up
+        Ok(())
+    }
+}
+
+#### Integration with Node
+
+To automatically register the registry service with the Node, we need to add special handling:
+
+```rust
+impl Node {
+    /// Initialize internal services
+    async fn init_internal_services(&mut self) -> Result<()> {
+        // Create a registry service with a reference to this node
+        let node_arc = Arc::new(self.clone());
+        let registry_service = RegistryService::new(node_arc);
+        
+        // Add the registry service to the node
+        self.add_service(registry_service).await?;
+        
+        Ok(())
+    }
+    
+    /// Create a new Node with the given configuration
+    pub async fn new(config: NodeConfig) -> Result<Self> {
+        // ... existing initialization code ...
+        
+        // Create a new node instance
+        let mut node = Self {
+            // ... existing fields ...
+        };
+        
+        // Initialize internal services
+        node.init_internal_services().await?;
+        
+        // Return the new node
+        Ok(node)
+    }
+}
+```
+
+#### Action Pattern Matching
+
+The example introduces a new concept: action pattern matching. This allows registering handlers for URL-like patterns with path parameters:
+
+```rust
+// Register an action with path parameters
+context.register_action_pattern("services/{service_path}/state", handler).await?;
+```
+
+This would require extending the `LifecycleContext` with a new registration method:
+
+```rust
+impl LifecycleContext {
+    /// Register an action handler with pattern matching
+    pub async fn register_action_pattern<F, Fut>(
+        &self,
+        pattern: &str,
+        handler: F,
+    ) -> Result<()>
+    where
+        F: Fn(Option<ValueType>, RequestContext, std::collections::HashMap<String, String>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<ServiceResponse>> + Send + 'static,
+    {
+        // Implementation would parse patterns like "services/{service_path}/state"
+        // and extract path parameters when matching requests
+        // ...
+    }
+}
+```
+
+This pattern matching capability would be a significant enhancement to the action registration system, allowing for more RESTful API designs.
+
+## Progress Tracking
+
+- [x] Simplify service lookup with TopicPath
+- [x] Implement request handling in Node
+- [x] Implement publishing in Node
+- [x] Create LifecycleContext with proper logging
+- [x] Add documentation warnings to handle_request and publish in ServiceRegistry
+- [x] Add clear test INTENTION documentation
+- [x] Refactor constructors using the builder pattern
+- [x] Remove deprecated constructor methods
+- [x] Remove `handle_request` from ServiceRegistry
+- [x] Remove `publish` from ServiceRegistry
+- [x] Update AbstractService to use action registration instead of handler methods
+- [x] Fix context handling
+- [x] Enhance TopicPath usage
+- [x] Implement CompleteServiceMetadata to track service state and metadata centrally
+- [x] Remove ServiceMetadata dependency from services, using direct AbstractService methods
+- [x] Fix ServiceRegistry implementation to properly handle registry cloning in action registration
+- [x] Update test fixtures to use the new service pattern
+- [x] Update service lifecycle management
+- [x] Remove the publish_event method from NodeDelegate trait
+- [x] Properly implement NodeDelegate trait for Node class
+- [x] Remove redundant NodeRequestHandler trait
+- [x] Fix list_services implementation to be non-blocking
+- [x] Fix unsubscribe method implementation
+- [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
+- [x] Implement lifecycle state tracking
+
+- [ ] Implement internal registry service for accessing service metadata
+- [ ] Implement publish_with_options
+- [ ] Implement EventContext for callbacks
+- [ ] Implement metrics system
+- [ ] Complete API cleanup for consistency
+
+## Testing Strategy
+
+- Create comprehensive unit tests for core registry functions
+- Test with real services and real Node instances
+- Verify event flow from publishing to receiving
+- Test both request and event paths
+- Ensure consistent behavior across different path formats
+- Ensure each test has clear INTENTION documentation
+- Each test should have a single responsibility and test only what the component is responsible for
+
+## Next Steps
+
+The immediate next steps are:
+
+1. ✅ Fix action handler registration/lookup with respect to registry cloning (COMPLETED)
+2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
+3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
+4. ✅ Fix non-blocking list_services implementation (COMPLETED)
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
+6. ✅ Implement lifecycle state tracking (COMPLETED)
+7. Implement internal registry service for accessing service metadata
+8. Implement EventContext to pass to callbacks
+9. Implement the metrics collection framework in Node
+10. Create the publish_with_options method with configurable delivery options
+
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods along with proper state tracking represents a key milestone in the Node's capability to properly manage service lifecycles. 
+
+The next focus is on implementing the internal registry service to provide a consistent API pattern for accessing service metadata. This will eliminate the need for direct methods like get_service_state() and align with the architectural principle of using the standard request interface for all service interactions. After that, work will continue on enhancing the event system and implementing metrics collection.
+
+## ServiceRegistry API Changes
+
+### 1. Action Registration API Change
+
+The `register_action` method signature has been updated from:
+
+```rust
+pub async fn register_action(
+    &self,
+    topic_path: &TopicPath,
+    action_name: &str,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+To the streamlined version:
+
+```rust
+pub async fn register_action(
+    &self,
+    action_path: &TopicPath,
+    handler: ActionHandler,
+) -> Result<()>
+```
+
+This change simplifies the API by:
+- Removing the need to separate service path and action name
+- Using a single TopicPath that already contains the action in its path
+- Improving consistency with the get_action_handler method which also takes a single TopicPath
+
+### Key Architectural Principles
+
+// ... existing code ... 
+
+## Internal Services Architecture
+
+An important architectural improvement is to introduce the concept of "internal services" - special services that handle Node metadata, service information, and other system-level operations through the standard request interface.
+
+### Registry Service
+
+The current implementation exposes methods like `node.get_service_state()` to retrieve service state information. This approach has several drawbacks:
+
+1. **Inconsistent API pattern**: Services are accessed through `request()` but service metadata through direct methods
+2. **Limited extensibility**: Each new piece of information requires a new method 
+3. **Method proliferation**: As more metadata is exposed, more methods are added
+4. **Inconsistent access patterns**: Some information is accessed via service-specific methods, other via requests
+
+Instead, we will implement an internal registry service that provides access to service metadata through the standard request interface:
+
+```rust
+// Current approach
+let state = node.get_service_state("math").await;
+
+// New approach
+let response = node.request("internal/registry/services/math", ValueType::Null).await?;
+let service_info = response.data.unwrap();  // Contains full service metadata including state
+```
+
+#### Registry Service Design
+
+1. **Service Path**: `internal/registry`
+
+2. **Available Actions**:
+   - `services` - List all services with basic metadata
+   - `services/{service_path}` - Get detailed information about a specific service
+   - `services/{service_path}/state` - Get just the state of a service
+   - `services/{service_path}/actions` - List actions of a service
+   - `services/{service_path}/events` - List events of a service
+
+3. **Implementation**:
+   - Create a dedicated `RegistryService` that is automatically registered with the Node
+   - Special initialization to avoid circular dependencies
+   - Privileged access to Node internals
+   - Standard service interface for requests
+
+4. **Response Format**:
+   - For service listing:
+   ```json
+   [
+     {
+       "name": "Math",
+       "path": "math",
+       "state": "Running",
+       "version": "1.0.0"
+     },
+     {
+       "name": "UserService",
+       "path": "users",
+       "state": "Running",
+       "version": "1.2.1"
+     }
+   ]
+   ```
+   
+   - For detailed service information:
+   ```json
+   {
+     "name": "Math",
+     "path": "math",
+     "state": "Running",
+     "version": "1.0.0",
+     "actions": ["add", "subtract", "multiply"],
+     "events": ["calculation_completed", "error_occurred"],
+     "metadata": {
+       "description": "Basic math operations",
+       "author": "Runar Team"
+     },
+     "started_at": "2023-06-10T15:30:45Z",
+     "uptime_seconds": 3600
+   }
+   ```
+
+#### Benefits
+
+1. **Consistent API pattern**: All service and metadata access through the same `request()` interface
+2. **Extensibility**: Additional metadata can be added without changing the API
+3. **Standard request/response format**: Uses the same format as other service responses
+4. **Improved testability**: Can test registry access through the same service testing patterns
+5. **Enhanced security**: Future permission models can be applied consistently
+
+#### Implementation Steps
+
+1. Create the `RegistryService` struct implementing `AbstractService`
+2. Add special handling in Node to register this service automatically
+3. Implement actions to retrieve service information from Node's state
+4. Update tests to use this new pattern
+5. Maintain the direct methods temporarily for backward compatibility 
+6. Add test coverage for registry service
+
+This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
+
+#### Example Implementation
+
+Here's a skeleton of how the `RegistryService` could be implemented:
+
+```rust
+use anyhow::Result;
+use async_trait::async_trait;
+use std::sync::Arc;
+
+use crate::node::Node;
+use crate::services::abstract_service::{AbstractService, ServiceState};
+use crate::services::{LifecycleContext, RequestContext, ServiceResponse};
+use runar_common::types::ValueType;
+
+/// Internal service for accessing registry information
+pub struct RegistryService {
+    /// Reference to the Node - needed to access service information
+    node: Arc<Node>,
+    
+    /// Service name
+    name: String,
+    
+    /// Service path
+    path: String,
+}
+
+impl RegistryService {
+    /// Create a new registry service
+    pub fn new(node: Arc<Node>) -> Self {
+        Self {
+            node,
+            name: "Registry".to_string(),
+            path: "internal/registry".to_string(),
+        }
+    }
+    
+    /// Handle request for listing all services
+    async fn handle_list_services(&self, _params: Option<ValueType>, _context: RequestContext) -> Result<ServiceResponse> {
+        // Get all services from the node
+        let services = self.node.list_services();
+        let states = self.node.get_all_service_states().await;
+        
+        // Build response data
+        let mut services_data = Vec::new();
+        for service_path in services {
+            let state = states.get(&service_path).cloned();
+            
