@@ -239,13 +239,13 @@ An important aspect missing from the current implementation is proper Node lifec
    - [ ] Create configurable metrics storage
 
 8. **Phase 8: Node Lifecycle Management**
-   - [ ] Implement a proper `start()` method in Node
-   - [ ] Implement service startup orchestration (calling start on all services)
-   - [ ] Implement a clean `stop()` method in Node
-   - [ ] Implement service shutdown orchestration
-   - [ ] Add lifecycle state tracking for services
-   - [ ] Ensure idempotent startup and shutdown
-   - [ ] Add tests for Node lifecycle methods
+   - [x] Implement a proper `start()` method in Node
+   - [x] Implement service startup orchestration (calling start on all services)
+   - [x] Implement a clean `stop()` method in Node
+   - [x] Implement service shutdown orchestration
+   - [x] Add lifecycle state tracking for services
+   - [x] Ensure idempotent startup and shutdown
+   - [x] Add tests for Node lifecycle methods
 
 ## Progress Tracking
 
@@ -273,15 +273,15 @@ An important aspect missing from the current implementation is proper Node lifec
 - [x] Fix list_services implementation to be non-blocking
 - [x] Fix unsubscribe method implementation
 - [x] Ensure all tests pass, including unit tests and doctests
+- [x] Implement Node.start() method for proper lifecycle management
+- [x] Implement Node.stop() method for clean shutdown
+- [x] Add service startup orchestration
+- [x] Add service shutdown orchestration
  
 - [ ] Implement publish_with_options
 - [ ] Implement EventContext for callbacks
 - [ ] Implement metrics system
 - [ ] Complete API cleanup for consistency
-- [ ] Implement Node.start() method for proper lifecycle management
-- [ ] Implement Node.stop() method for clean shutdown
-- [ ] Add service startup orchestration
-- [ ] Add service shutdown orchestration
 - [ ] Implement lifecycle state tracking
 
 ## Testing Strategy
@@ -302,12 +302,12 @@ The immediate next steps are:
 2. ✅ Fix NodeDelegate trait implementation (COMPLETED)
 3. ✅ Remove redundant NodeRequestHandler trait (COMPLETED)
 4. ✅ Fix non-blocking list_services implementation (COMPLETED)
-5. Implement Node.start() and Node.stop() lifecycle methods
+5. ✅ Implement Node.start() and Node.stop() lifecycle methods (COMPLETED)
 6. Implement EventContext to pass to callbacks
 7. Implement the metrics collection framework in Node
 8. Create the publish_with_options method with configurable delivery options
 
-All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The remaining work focuses on enhancing the event system, implementing metrics collection, and completing the node lifecycle management.
+All the unit tests for basic functionality are now passing, which marks significant progress in the refactoring plan. The implementation of Node.start() and Node.stop() lifecycle methods represents a key milestone in the Node's capability to properly manage service lifecycles. The remaining work focuses on enhancing the event system, implementing metrics collection, and completing the node lifecycle state tracking.
 
 ## ServiceRegistry API Changes
 
