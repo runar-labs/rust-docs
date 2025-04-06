@@ -132,6 +132,7 @@ pub async fn init(&self, context: LifecycleContext) -> Result<()> {
 5. Update tests to use this new pattern
 6. Maintain the direct methods temporarily for backward compatibility 
 7. Add test coverage for registry service
+8. ✅ Optimize service metadata retrieval to fetch all metadata in a single call
 
 This approach better aligns with the architectural principles of the system, treating service metadata as a first-class concept that is accessible through the standard service interface.
 

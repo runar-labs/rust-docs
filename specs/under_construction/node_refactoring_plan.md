@@ -106,6 +106,7 @@ The immediate next steps are:
      - [✓] Eliminate duplicate code for parameter handling
      - [✓] Create helper methods for consistent parameter extraction
      - [✓] Improve error messages and logging
+     - [✓] Optimize service metadata retrieval to fetch all metadata in a single call
 
 2. [ ] Implement publish_with_options
 3. [ ] Implement EventContext for callbacks
