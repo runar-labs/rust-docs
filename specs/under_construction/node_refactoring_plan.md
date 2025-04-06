@@ -5,12 +5,14 @@ This document consolidates the improvements for the Runar Node system, specifica
 
 ## Current Status
 
-Most architectural issues have been resolved:
+All core architectural issues have been resolved:
 - ✅ Service Registry responsibilities properly defined
 - ✅ Node implementation with correct request routing & publishing
 - ✅ Consistent path/name usage with TopicPath
 - ✅ Removed deprecated methods and anti-patterns
 - ✅ Improved service lifecycle management
+- ✅ Registry Service Implementation with path parameter extraction
+- ✅ Implementation of publish_with_options
 
 ## Key Architectural Principles
 
@@ -98,20 +100,22 @@ The Registry Service will leverage TopicPath templating to handle parameterized 
 
 The immediate next steps are:
 
-1. [✓] Implement internal registry service ($registry) for accessing service metadata
-   - [✓] Basic service structure and delegates
-   - [✓] **Improve Registry Service Implementation:**
-     - [✓] Simplify action registration by using `register_action` instead of `register_action_with_options` where possible
-     - [✓] Replace manual URL path parsing with built-in path parameter extraction
-     - [✓] Eliminate duplicate code for parameter handling
-     - [✓] Create helper methods for consistent parameter extraction
-     - [✓] Improve error messages and logging
-     - [✓] Optimize service metadata retrieval to fetch all metadata in a single call
+1. [ ] Implement EventContext for callbacks
+   - More consistent event context for event handlers
+   - Proper access to Node functionality in event callbacks
+   - Improved error handling and logging
 
-2. [ ] Implement publish_with_options
-3. [ ] Implement EventContext for callbacks
-4. [ ] Implement metrics system
-5. [ ] Complete API cleanup for consistency
+2. [ ] Improve TopicPath to handle wildcard scenarios
+   - Add support for wildcard matching in topic paths (e.g., `services/*/state`)
+   - Implement multi-segment wildcards for hierarchical matching
+   - Update subscription matching logic to work with wildcard patterns
+   - Ensure proper performance optimization for wildcard resolution
+
+3. [ ] Update Registry Service with vmap macro
+   - Replace direct HashMap usage with vmap macro for type-safe value extraction
+   - Improve data transformation between ValueType and native Rust types
+   - Simplify response construction with structured data mapping
+   - Add comprehensive validation for incoming requests
 
 ## Testing Strategy
 
