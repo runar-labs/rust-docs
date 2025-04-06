@@ -100,12 +100,12 @@ The Registry Service will leverage TopicPath templating to handle parameterized 
 
 The immediate next steps are:
 
-1. [ ] Refactor EventContext for callbacks
-   - Replace individual fields (network_id, topic, service_path) with a single TopicPath
-   - Remove unnecessary config field and use delivery_options for configuration
-   - Ensure consistent method signatures for publish() and request()
-   - Use direct TopicPath methods instead of accessor wrappers
-   - Remove publish() and request() methods from LifecycleContext as these should not be used during init/shutdown
+1. [x] Refactor EventContext for callbacks
+   - [x] Replace individual fields (network_id, topic, service_path) with a single TopicPath
+   - [x] Remove unnecessary config field and use delivery_options for configuration
+   - [x] Ensure consistent method signatures for publish() and request()
+   - [x] Use direct TopicPath methods instead of accessor wrappers
+   - [x] Remove publish() and request() methods from LifecycleContext as these should not be used during init/shutdown
 
 2. [ ] Improve TopicPath to handle wildcard scenarios
    - Add support for wildcard matching in topic paths (e.g., `services/*/state`)
