@@ -1,8 +1,4 @@
-# Runar Development Guidelines
-
-## Documentation-First Development
-
-Our codebase follows a documentation-first development approach:
+ALWAYS USE IDE TOOLS don t use cat vi grep etc to read and modify file.s. use the IDE too.s if tgheuy fail.. let me know so I can restart the IDE
 
 1. **Source of Truth**: Documentation in source files and test files is the source of truth
    - Every component, module, and test has documented INTENTION
