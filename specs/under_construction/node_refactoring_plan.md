@@ -3,17 +3,29 @@
 ## Overview
 This document consolidates the improvements for the Runar Node system, specifically focused on the Network Layer implementation. It addresses architectural issues, responsibility allocation, and implementation details to create a more maintainable and correctly structured system.
 
-## Current Status
+## Current Status (Updated)
 
-All core architectural issues have been resolved and most of the refactoring tasks are complete:
+Refactoring of the core Node and Service Registry components is largely complete:
 - ✅ Service Registry responsibilities properly defined
-- ✅ Node implementation with correct request routing & publishing
-- ✅ Consistent path/name usage with TopicPath
+- ✅ Node implementation with local request routing & publishing functional (as verified by tests)
+- ✅ Consistent path/name usage with TopicPath (in most areas)
 - ✅ Removed deprecated methods and anti-patterns
 - ✅ Improved service lifecycle management
 - ✅ Registry Service Implementation with path parameter extraction
 - ✅ Implementation of publish_with_options
 - ✅ Benchmark tests implemented
+
+**Currently In Progress:**
+- **Integrating Network Layer into Node:** Adding network-related fields (`network_transport`, `node_discovery`, etc.) and lifecycle management (`start_networking`, updates to `start`/`stop`) to `node.rs`. Correcting previous overly broad edits to `node.rs` to focus *only* on additive network integration.
+- **Resolving Build Errors:** Addressing linter errors related to missing type definitions (`NodeConfig`, `Router`, etc.) and persistent issues in network components (`quic_transport.rs` lock errors).
+
+## Lessons Learned (New Section)
+
+Recent refactoring attempts highlighted critical lessons:
+- **Strict Adherence to Plans:** It is essential to strictly follow documented refactoring plans and architectural guidelines (`node_design.md`). Deviations, especially those modifying existing functional code without explicit planning, can lead to significant setbacks and breakages.
+- **Verify Before Modifying:** Assumptions about type definitions, visibility, or existing logic must be verified by reading the relevant code or documentation *before* proposing edits. Relying solely on linter output can be misleading if the root cause is elsewhere (e.g., missing definitions).
+- **Additive Integration:** When adding new features like the network layer, changes should be primarily additive. Existing, tested logic (like local request handling in `node.rs`) should not be refactored or significantly altered unless it's part of an explicitly documented and agreed-upon step in the plan.
+- **Incremental Steps:** Focus on small, verifiable steps. Ensure basic structure and dependencies are correct before attempting complex integrations.
 
 ## Key Architectural Principles
 
@@ -97,25 +109,34 @@ The Registry Service will leverage TopicPath templating to handle parameterized 
 - [x] Implement TopicPath template parameter extraction (see topic_path_templating.md)
 - [x] Extend RequestContext and registration options with template parameters
 
-## Next Steps
+## Next Steps (Refined)
 
-The immediate next step is:
+The immediate next steps are focused on establishing a compiling baseline with the network structure integrated:
+ 
+3.  **Address Network Component Errors:**
+    *   Investigate and fix the persistent `Result<...Guard> is not a future` errors in `quic_transport.rs`. This may require checking `Cargo.lock`, cleaning the build, or further debugging.
+    *   Ensure `multicast_discovery.rs` compiles cleanly.
+4.  **Build & Test:** Achieve a clean build (`cargo build --package runar_node --no-default-features`). Run existing tests (`cargo test --package runar_node`) and fix any regressions introduced during network integration.
+5.  **Implement Network Routing:** Once the structure compiles, modify `Node::request`, `Node::publish_event`, etc., to correctly interact with the `Router` and `NetworkTransport` for handling remote communication.
+6.  **Address Serialization:** change to `protobuf` as originally planned. Document this decision.
 
-1. **Implement Network Layer**
-   - For detailed design, see: [node_design.md](./node_design.md)
-   - This will add distributed networking capabilities to the Runar Node system
-   - Enable transparent service discovery and communication across multiple nodes
-   - Support multiple transport protocols (TCP, QUIC, WebSockets)
-   - Add security features for authentication and encryption
-
-See the node_design.md document for a comprehensive plan for implementing the network layer.
+(Future steps remain the same)
 
 ## Testing Strategy
 
 - Create comprehensive unit tests for networking functions
-- Test with real services across multiple nodes
-- Verify request and event flow between nodes
-- Test both local and remote service scenarios
-- Ensure consistent behavior across different transport types
-- Validate security features and failure handling
-- Benchmark performance across network boundaries
+- Test with real services across multiple nodes (Integration/System Tests)
+- Verify request and event flow between nodes (Integration/System Tests)
+- Test both local and remote service scenarios (Integration/System Tests)
+- Ensure consistent behavior across different transport types (Integration Tests)
+- Validate security features and failure handling (System/Chaos Tests)
+- Benchmark performance across network boundaries (Performance Tests)
+- **Examples (`examples/`)**: Focus on demonstrating high-level, user-facing API usage, especially multi-node communication where network details are transparent.
+
+## Performance Considerations
+
+(Content remains the same)
+
+## Backward Compatibility
+
+(Content remains the same)
