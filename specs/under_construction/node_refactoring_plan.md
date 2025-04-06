@@ -119,18 +119,26 @@ The immediate next steps are:
    - [x] Ensure all tests pass with the updated API
 
 3. [ ] Improve TopicPath to handle wildcard scenarios
-First steps is to create a spec doc detailed witha a.ll variation.. use our current implemntation + rust-docs/specs/under_construction/nats.io_topi_spec.md as your input.. we want to have the same features NATS has.. so lets use the wildcards and other thigns froem the.. they . (dot) instead of / .. but the same concept applies.. we will continue to use / .. so taht is not gonna chagen. but all ther other concept form NaTS>. bring them over to our design.,,.
-
-   - Add support for wildcard matching in topic paths (e.g., `services/*/state`)
-   - Implement multi-segment wildcards for hierarchical matching
-   - Update subscription matching logic to work with wildcard patterns
-   - Ensure proper performance optimization for wildcard resolution
+   - [x] Create detailed specification document (see [topic_path_wildcard_design.md](./topic_path_wildcard_design.md))
+   - [ ] Redesign TopicPath to support wildcard patterns
+   - [ ] Implement custom Hash and Eq traits for HashMap support
+   - [ ] Create specialized WildcardSubscriptionRegistry for efficient lookups
+   - [ ] Update ServiceRegistry to support pattern-based subscription matching
+   - [ ] Update event distribution to find all matching patterns
+   - [ ] Add comprehensive wildcard pattern tests
 
 4. [ ] Update Registry Service with vmap macro
    - Replace direct HashMap usage with vmap macro for type-safe value extraction
    - Improve data transformation between ValueType and native Rust types
    - Simplify response construction with structured data mapping
    - Add comprehensive validation for incoming requests
+
+5. [ ] Implement logging middleware for enhanced diagnostics
+   - [ ] Design logging middleware that integrates with EventContext
+   - [ ] Create a configurable system for log verbosity
+   - [ ] Ensure proper context propagation through the system
+   - [ ] Add structured logging with contextual metadata
+   - [ ] Create helper methods for common logging patterns
 
 ## Testing Strategy
 
