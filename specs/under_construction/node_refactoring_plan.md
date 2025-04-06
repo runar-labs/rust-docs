@@ -1,11 +1,11 @@
 # Node Refactoring Plan
 
 ## Overview
-This document consolidates the improvements for the Runar Node system, specifically focused on the Service Registry and Event System. It addresses architectural issues, responsibility allocation, and implementation details to create a more maintainable and correctly structured system.
+This document consolidates the improvements for the Runar Node system, specifically focused on the Network Layer implementation. It addresses architectural issues, responsibility allocation, and implementation details to create a more maintainable and correctly structured system.
 
 ## Current Status
 
-All core architectural issues have been resolved:
+All core architectural issues have been resolved and most of the refactoring tasks are complete:
 - ✅ Service Registry responsibilities properly defined
 - ✅ Node implementation with correct request routing & publishing
 - ✅ Consistent path/name usage with TopicPath
@@ -13,6 +13,7 @@ All core architectural issues have been resolved:
 - ✅ Improved service lifecycle management
 - ✅ Registry Service Implementation with path parameter extraction
 - ✅ Implementation of publish_with_options
+- ✅ Benchmark tests implemented
 
 ## Key Architectural Principles
 
@@ -98,50 +99,23 @@ The Registry Service will leverage TopicPath templating to handle parameterized 
 
 ## Next Steps
 
-The immediate next steps are:
+The immediate next step is:
 
-1. [x] Refactor EventContext for callbacks
-   - [x] Replace individual fields (network_id, topic, service_path) with a single TopicPath
-   - [x] Remove unnecessary config field and use delivery_options for configuration
-   - [x] Ensure consistent method signatures for publish() and request()
-   - [x] Use direct TopicPath methods instead of accessor wrappers
-   - [x] Remove publish() and request() methods from LifecycleContext as these should not be used during init/shutdown
+1. **Implement Network Layer**
+   - For detailed design, see: [node_design.md](./node_design.md)
+   - This will add distributed networking capabilities to the Runar Node system
+   - Enable transparent service discovery and communication across multiple nodes
+   - Support multiple transport protocols (TCP, QUIC, WebSockets)
+   - Add security features for authentication and encryption
 
-2. [x] Improve API Ergonomics
-   - [x] Update all string parameters to use `impl Into<String>` for greater flexibility
-   - [x] Ensure consistent parameter handling across the codebase
-   - [x] Update Node API methods (publish, request, subscribe)
-   - [x] Update TopicPath constructors and methods
-   - [x] Update ServiceRequest constructors
-   - [x] Update LifecycleContext registration methods
-   - [x] Update ServiceResponse error creation
-   - [x] Add documentation highlighting the ergonomic improvements
-   - [x] Ensure all tests pass with the updated API
-
-3. [x] Improve TopicPath to handle wildcard scenarios
-   - [x] Create detailed specification document (see [topic_path_wildcard_design.md](../completed/topic_path_wildcard_design.md))
-   - [x] Redesign TopicPath to support wildcard patterns
-   - [x] Implement custom Hash and Eq traits for HashMap support
-   - [x] Create specialized WildcardSubscriptionRegistry for efficient lookups
-   - [x] Update ServiceRegistry to support pattern-based subscription matching
-   - [x] Update event distribution to find all matching patterns
-   - [x] Add comprehensive wildcard pattern tests
-
-4. [ ] Update Registry Service with vmap macro
-   - Replace direct HashMap usage with vmap macro for type-safe value extraction
-   - Improve data transformation between ValueType and native Rust types
-   - Simplify response construction with structured data mapping
-   - Add comprehensive validation for incoming requests
-
-5. improve the log system abit futher.. current we have component in the logger obejcvt.. we should also have he action_event_path field.. so when u creaet  a looger for a  Event or REquest context u set the path and that can be added to the log string [nodeID] [component] [service_path/action_or_efvent] [log message]  
-
-6.  lets implement a benchmark test thgat will put load and use the munlti thread features and make sure no colition or dead locks exist and we can rump up and down and benckmark mempry and cpu and time.. so we can re run this test as we go ahead and add featgures to the system and  changes things.
+See the node_design.md document for a comprehensive plan for implementing the network layer.
 
 ## Testing Strategy
 
-- Create comprehensive unit tests for core registry functions
-- Test with real services and real Node instances
-- Verify event flow from publishing to receiving
-- Test both request and event paths
-- Ensure consistent behavior across different path formats
-- Ensure each test has clear INTENTION documentation
+- Create comprehensive unit tests for networking functions
+- Test with real services across multiple nodes
+- Verify request and event flow between nodes
+- Test both local and remote service scenarios
+- Ensure consistent behavior across different transport types
+- Validate security features and failure handling
+- Benchmark performance across network boundaries

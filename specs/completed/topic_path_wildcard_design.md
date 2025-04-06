@@ -1,30 +1,8 @@
-# TopicPath Wildcard System Design (COMPLETED)
+# TopicPath Wildcard System Design
 
 ## Overview
 
 This document outlines the design for adding wildcard support to the TopicPath system in the Runar Node architecture. The design prioritizes performance, clean APIs, and efficient subscription matching.
-
-## Implementation Status
-
-**Status: COMPLETED**
-
-All features described in this design document have been successfully implemented:
-
-1. ✅ Enhanced TopicPath with wildcard support
-2. ✅ Implemented Single-Segment Wildcard (`*`) pattern matching 
-3. ✅ Implemented Multi-Segment Wildcard (`>`) pattern matching
-4. ✅ Created efficient subscription storage with WildcardSubscriptionRegistry
-5. ✅ Integrated with ServiceRegistry for wildcard subscriptions
-6. ✅ Added comprehensive unit and integration tests
-
-### Test Coverage
-
-The implementation includes comprehensive tests:
-- Basic wildcard pattern matching
-- Network isolation validation
-- Complex patterns with mixed wildcard types
-- Integration with ServiceRegistry subscription system
-- Proper handling of subscription and unsubscription
 
 ## Key Requirements
 
