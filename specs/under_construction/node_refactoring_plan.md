@@ -107,13 +107,26 @@ The immediate next steps are:
    - [x] Use direct TopicPath methods instead of accessor wrappers
    - [x] Remove publish() and request() methods from LifecycleContext as these should not be used during init/shutdown
 
-2. [ ] Improve TopicPath to handle wildcard scenarios
+2. [x] Improve API Ergonomics
+   - [x] Update all string parameters to use `impl Into<String>` for greater flexibility
+   - [x] Ensure consistent parameter handling across the codebase
+   - [x] Update Node API methods (publish, request, subscribe)
+   - [x] Update TopicPath constructors and methods
+   - [x] Update ServiceRequest constructors
+   - [x] Update LifecycleContext registration methods
+   - [x] Update ServiceResponse error creation
+   - [x] Add documentation highlighting the ergonomic improvements
+   - [x] Ensure all tests pass with the updated API
+
+3. [ ] Improve TopicPath to handle wildcard scenarios
+First steps is to create a spec doc detailed witha a.ll variation.. use our current implemntation + rust-docs/specs/under_construction/nats.io_topi_spec.md as your input.. we want to have the same features NATS has.. so lets use the wildcards and other thigns froem the.. they . (dot) instead of / .. but the same concept applies.. we will continue to use / .. so taht is not gonna chagen. but all ther other concept form NaTS>. bring them over to our design.,,.
+
    - Add support for wildcard matching in topic paths (e.g., `services/*/state`)
    - Implement multi-segment wildcards for hierarchical matching
    - Update subscription matching logic to work with wildcard patterns
    - Ensure proper performance optimization for wildcard resolution
 
-3. [ ] Update Registry Service with vmap macro
+4. [ ] Update Registry Service with vmap macro
    - Replace direct HashMap usage with vmap macro for type-safe value extraction
    - Improve data transformation between ValueType and native Rust types
    - Simplify response construction with structured data mapping
