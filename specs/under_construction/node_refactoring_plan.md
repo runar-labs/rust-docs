@@ -118,14 +118,14 @@ The immediate next steps are:
    - [x] Add documentation highlighting the ergonomic improvements
    - [x] Ensure all tests pass with the updated API
 
-3. [ ] Improve TopicPath to handle wildcard scenarios
-   - [x] Create detailed specification document (see [topic_path_wildcard_design.md](./topic_path_wildcard_design.md))
-   - [ ] Redesign TopicPath to support wildcard patterns
-   - [ ] Implement custom Hash and Eq traits for HashMap support
-   - [ ] Create specialized WildcardSubscriptionRegistry for efficient lookups
-   - [ ] Update ServiceRegistry to support pattern-based subscription matching
-   - [ ] Update event distribution to find all matching patterns
-   - [ ] Add comprehensive wildcard pattern tests
+3. [x] Improve TopicPath to handle wildcard scenarios
+   - [x] Create detailed specification document (see [topic_path_wildcard_design.md](../completed/topic_path_wildcard_design.md))
+   - [x] Redesign TopicPath to support wildcard patterns
+   - [x] Implement custom Hash and Eq traits for HashMap support
+   - [x] Create specialized WildcardSubscriptionRegistry for efficient lookups
+   - [x] Update ServiceRegistry to support pattern-based subscription matching
+   - [x] Update event distribution to find all matching patterns
+   - [x] Add comprehensive wildcard pattern tests
 
 4. [ ] Update Registry Service with vmap macro
    - Replace direct HashMap usage with vmap macro for type-safe value extraction
@@ -133,12 +133,9 @@ The immediate next steps are:
    - Simplify response construction with structured data mapping
    - Add comprehensive validation for incoming requests
 
-5. [ ] Implement logging middleware for enhanced diagnostics
-   - [ ] Design logging middleware that integrates with EventContext
-   - [ ] Create a configurable system for log verbosity
-   - [ ] Ensure proper context propagation through the system
-   - [ ] Add structured logging with contextual metadata
-   - [ ] Create helper methods for common logging patterns
+5. improve the log system abit futher.. current we have component in the logger obejcvt.. we should also have he action_event_path field.. so when u creaet  a looger for a  Event or REquest context u set the path and that can be added to the log string [nodeID] [component] [service_path/action_or_efvent] [log message]  
+
+6.  lets implement a benchmark test thgat will put load and use the munlti thread features and make sure no colition or dead locks exist and we can rump up and down and benckmark mempry and cpu and time.. so we can re run this test as we go ahead and add featgures to the system and  changes things.
 
 ## Testing Strategy
 
