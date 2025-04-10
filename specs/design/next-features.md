@@ -59,7 +59,7 @@ node.add_service(crud).await
 //pure_sql API
 node.request("users_db/execute/users", {statement:"INSERT INTO USERS VALUES ($name, $email, $age)",{name:"John", email: "john@email.com", age:45}})
 
-node.request("users_db/query/users",{statement:"SELECT * FROM USERS WHERE (name like $name)",{name:"John"}})
+let users = node.request("users_db/query/users",{statement:"SELECT * FROM USERS WHERE (name like $name)",{name:"John"}})
 
 
 //sqlite crud API
