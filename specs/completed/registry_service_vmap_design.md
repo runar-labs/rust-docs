@@ -70,8 +70,9 @@ Update the response construction:
 
 ```rust
 async fn handle_list_services(&self, _params: ValueType, _ctx: RequestContext) -> Result<ServiceResponse> {
+    // Get all service states and metadata in one call
     let service_states = self.registry_delegate.get_all_service_states().await;
-    let service_metadata = self.registry_delegate.get_all_service_metadata().await;
+    let service_metadata = self.registry_delegate.get_all_service_metadata(true).await;
     
     let mut services = Vec::new();
     
