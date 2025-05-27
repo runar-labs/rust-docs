@@ -4,9 +4,6 @@ This document contains planned new features for implementation. Please refer to 
 
 ## Planned Features
 
-### P2P Discovery
-- Implement the P2P discovery functionality as specified in `/docs/Discovery.md`
-- Create tests for the auto-discovery feature, building on existing P2P tests
 
 ### Keys Management
 - Implement the keys management functionality as specified in `/docs/Keys Management.md`

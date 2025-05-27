@@ -5,15 +5,15 @@ statless and sategfull services
 
 - the fmk distinguishes from stateless and stateufll services
 most service should be stateles where nothing is stored in the service instance.
-- action handlers and event handlers just deslgt with the data rewceived as parameter or in the context and return its retuslta or can call other actions or emit evenbts...
+- action handlers and event handlers just deal with the data received as parameter or in the context and return its result or can call other actions or emit events...
 
 
-then we have statefull services where the object is to store data and aloow to retrieval. e.g. Sqlite service or Mongo service
+then we have statefull services where the object is to store data and allow to retrieval. e.g. Sqlite service or Mongo service
 
-stateless services are availçanble for use as soon as it starts.. but statefull services might need to compelte data sync before is availçabe to answer requestsa and handle events..
-IMPORTANT NOTE for eveng delivery.. only services that have STARTED can receive events.. and accept request
+stateless services are available for use as soon as it starts.. but statefull services might need to compelte data sync before is available to answer requestsa and handle events..
+IMPORTANT NOTE for event delivery.. only services that have STARTED can receive events.. and accept request
 
-Statefull services will during start check full data sync and only when that is done complete the start me6thods and the core can set service state to started and then be afvialable for reqeusta dn process events.
+Statefull services will during start check full data sync and only when that is done complete the start me6thods and the core can set service state to started and then be available for reqeusta dn process events.
 
 Mixins
 
