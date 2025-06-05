@@ -40,7 +40,7 @@ The Gateway module provides:
 - Authentication and authorization
 - Real-time communication via WebSockets
 - Protection against abuse and attacks
-- Integration with Kagi node services
+- Integration with Runar node services
 - Monitoring and observability features
 
 ## Core Features
@@ -138,8 +138,8 @@ auth:
   jwt:
     secret: "${JWT_SECRET}"
     algorithms: ["HS256"]
-    issuer: "kagi-gateway"
-    audience: "kagi-services"
+    issuer: "runar-gateway"
+    audience: "runar-services"
     expiration: 3600  # 1 hour
 ```
 
@@ -325,7 +325,7 @@ security:
 websocket:
   enabled: true
   path: "/ws"
-  subprotocols: ["kagi-v1"]
+  subprotocols: ["runar-v1"]
   heartbeat_interval: 30s
   max_message_size: 65536
   
@@ -622,7 +622,7 @@ service_discovery:
   type: "registry"
   registry:
     url: "http://registry:8500"
-    service_prefix: "kagi-"
+    service_prefix: "runar-"
     refresh_interval: 30s
   p2p:
     enabled: true
@@ -788,7 +788,7 @@ gateway:
 
 ## Programmatic Configuration
 
-The Gateway can be configured programmatically using macros that integrate seamlessly with the Kagi node system. This approach allows for defining routes, middleware, and other gateway features directly in the application code.
+The Gateway can be configured programmatically using macros that integrate seamlessly with the Runar node system. This approach allows for defining routes, middleware, and other gateway features directly in the application code.
 
 ### Gateway Macro
 
@@ -797,7 +797,7 @@ The `#[gateway]` macro defines a new gateway service with configuration options.
 **Basic Gateway Definition**:
 
 ```rust
-use kagi_macros::gateway;
+use runar_macros::gateway;
 
 #[gateway(
     host = "0.0.0.0",
@@ -817,7 +817,7 @@ impl ApiGateway {
 **Full Gateway Configuration**:
 
 ```rust
-use kagi_macros::gateway;
+use runar_macros::gateway;
 
 #[gateway(
     host = "0.0.0.0",
@@ -834,7 +834,7 @@ pub struct ApiGateway;
 **YAML-based Configuration**:
 
 ```rust
-use kagi_macros::gateway;
+use runar_macros::gateway;
 
 #[gateway(config_file = "config/gateway.yml")]
 pub struct ApiGateway;
@@ -847,7 +847,7 @@ Routes can be defined using the `#[route]` macro on gateway implementation metho
 **Basic Route Definition**:
 
 ```rust
-use kagi_macros::{gateway, route};
+use runar_macros::{gateway, route};
 
 #[gateway(...)]
 pub struct ApiGateway;
@@ -885,7 +885,7 @@ impl ApiGateway {
 **REST API to Service Mapping**:
 
 ```rust
-use kagi_macros::{gateway, rest_api};
+use runar_macros::{gateway, rest_api};
 
 #[gateway(...)]
 pub struct ApiGateway;
@@ -924,7 +924,7 @@ Middleware can be defined and configured using the `#[middleware]` macro. This a
 **Basic Middleware Definition**:
 
 ```rust
-use kagi_macros::middleware;
+use runar_macros::middleware;
 
 #[middleware]
 pub struct AuthMiddleware;
@@ -955,7 +955,7 @@ impl AuthMiddleware {
 **Middleware Registration**:
 
 ```rust
-use kagi_macros::gateway;
+use runar_macros::gateway;
 
 #[gateway(
     host = "0.0.0.0",
@@ -976,7 +976,7 @@ The gateway can be configured to load specific settings from a YAML file while k
 **Mixed Configuration**:
 
 ```rust
-use kagi_macros::gateway;
+use runar_macros::gateway;
 
 #[gateway(
     config_file = "config/gateway.yml",
@@ -1012,7 +1012,7 @@ auth:
 ### Complete Gateway Service Example
 
 ```rust
-use kagi_macros::{gateway, route, middleware, init, service};
+use runar_macros::{gateway, route, middleware, init, service};
 use anyhow::Result;
 use uuid::Uuid;
 
@@ -1094,8 +1094,8 @@ impl AuthMiddleware {
 ### Main Application Entry Point
 
 ```rust
-use kagi_macros::{main};
-use kagi_node::Node;
+use runar_macros::{main};
+use runar_node::Node;
 
 mod user_service;
 mod auth_service;
@@ -1110,7 +1110,7 @@ use api_gateway::ApiGateway;
 #[main]
 async fn main() -> Result<()> {
     // Create and initialize node
-    let mut node = Node::new(kagi_node::NodeConfig {
+    let mut node = Node::new(runar_node::NodeConfig {
         node_id: "api_node".to_string(),
         data_dir: "./data".to_string(),
         db_path: "./data/db".to_string(),
@@ -1139,7 +1139,7 @@ async fn main() -> Result<()> {
 }
 ```
 
-This improved specification provides a comprehensive guide for implementing the Gateway module, with clear examples and implementation details that integrate well with the Kagi node system.
+This improved specification provides a comprehensive guide for implementing the Gateway module, with clear examples and implementation details that integrate well with the Runar node system.
 
 
 ## Examples

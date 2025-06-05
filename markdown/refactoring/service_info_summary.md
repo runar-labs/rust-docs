@@ -10,7 +10,7 @@
 
 4. **Utilities**: Added a utility module in the `common` crate to help implement `ServiceInfo` for `AbstractService` implementors, making it easier to maintain consistency across services.
 
-5. **Package Dependencies**: Updated the dependencies in several crates (`node`, `kagi_macros`) to use the `ServiceInfo` trait from the common crate.
+5. **Package Dependencies**: Updated the dependencies in several crates (`node`, `runar_macros`) to use the `ServiceInfo` trait from the common crate.
 
 6. **Test Verification**: Created a simple test crate (`test_service_info`) that verifies the `ServiceInfo` trait implementation.
 

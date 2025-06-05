@@ -2,7 +2,7 @@
 
 ## Background
 
-The Kagi codebase had multiple definitions of the `ServiceInfo` trait, leading to confusion and compile errors. This refactoring aimed to centralize the trait definition in a common location and standardize its usage across the codebase.
+The Runar codebase had multiple definitions of the `ServiceInfo` trait, leading to confusion and compile errors. This refactoring aimed to centralize the trait definition in a common location and standardize its usage across the codebase.
 
 ## Changes Made
 
@@ -13,7 +13,7 @@ The Kagi codebase had multiple definitions of the `ServiceInfo` trait, leading t
    - `service_description(&self) -> &str`
    - `service_version(&self) -> &str`
 3. Updated the `node` crate to use the `ServiceInfo` trait from the `common` crate.
-4. Updated the `kagi_macros` crate to import the `ServiceInfo` trait from the `common` crate.
+4. Updated the `runar_macros` crate to import the `ServiceInfo` trait from the `common` crate.
 5. Created a `test_service_info` crate to verify the trait implementation.
 6. Renamed the `ServiceInfo` struct in `p2p/transport.rs` to `P2PServiceInfo` throughout the codebase to avoid confusion with the trait.
 
@@ -21,7 +21,7 @@ The Kagi codebase had multiple definitions of the `ServiceInfo` trait, leading t
 
 It's important to understand the difference between two concepts in the codebase:
 
-1. **ServiceInfo Trait** (from `kagi_common`): A trait that defines methods for retrieving service metadata (name, path, description, version).
+1. **ServiceInfo Trait** (from `runar_common`): A trait that defines methods for retrieving service metadata (name, path, description, version).
 2. **P2PServiceInfo Struct** (in `p2p/transport.rs`): A data structure used for P2P service discovery that contains fields for name, path, and operations.
 
 These concepts serve different purposes:

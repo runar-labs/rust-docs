@@ -1,10 +1,10 @@
-# Installing Kagi
+# Installing Runar
 
-This guide covers how to install the Kagi framework in various environments.
+This guide covers how to install the Runar framework in various environments.
 
 ## Prerequisites
 
-Before installing Kagi, ensure you have the following prerequisites:
+Before installing Runar, ensure you have the following prerequisites:
 
 - Rust (1.65 or newer) with Cargo
 - OpenSSL development libraries
@@ -22,24 +22,24 @@ Follow the on-screen instructions to complete the installation.
 
 ## As a Dependency in Your Project
 
-To use Kagi in your Rust project, add it to your `Cargo.toml`:
+To use Runar in your Rust project, add it to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-kagi_node = "0.1.0"
-kagi_macros = "0.1.0"  # For macro support
+runar_node = "0.1.0"
+runar_macros = "0.1.0"  # For macro support
 ```
 
-You can now import Kagi in your Rust code:
+You can now import Runar in your Rust code:
 
 ```rust
-use kagi_node::prelude::*;
-use kagi_node::macros::*;  // For macro support
+use runar_node::prelude::*;
+use runar_macros::*;  // For macro support
 ```
 
 ## As a Standalone Application
 
-You can install the Kagi framework as a standalone application:
+You can install the Runar framework as a standalone application:
 
 ### From Binary Releases
 
@@ -47,28 +47,28 @@ Download the latest release for your platform:
 
 ```bash
 # Download the latest release
-curl -L https://github.com/kagi-framework/kagi/releases/latest/download/kagi-$(uname -s)-$(uname -m) -o kagi
+curl -L https://github.com/runar-labs/runar/releases/latest/download/runar-$(uname -s)-$(uname -m) -o runar
 
 # Make it executable
-chmod +x kagi
+chmod +x runar
 
 # Move it to a directory in your PATH
-sudo mv kagi /usr/local/bin/
+sudo mv runar /usr/local/bin/
 ```
 
 ### From Source
 
-To build Kagi from source:
+To build Runar from source:
 
 ```bash
 # Clone the repository
-git clone https://github.com/kagi-framework/kagi.git
-cd kagi
+git clone https://github.com/runar-labs/runar.git
+cd runar
 
 # Build in release mode
 cargo build --release
 
-# The binary will be available at target/release/kagi
+# The binary will be available at target/release/runar
 ```
 
 ### Verifying Installation
@@ -76,10 +76,10 @@ cargo build --release
 Verify the installation by running:
 
 ```bash
-kagi --version
+runar --version
 ```
 
-This should output the version number of the installed Kagi framework.
+This should output the version number of the installed Runar framework.
 
 ## Platform-Specific Instructions
 
@@ -89,26 +89,26 @@ On Windows, you can download the pre-built binary from the releases page or buil
 
 ### macOS
 
-On macOS, you can use Homebrew to install Kagi:
+On macOS, you can use Homebrew to install Runar:
 
 ```bash
-brew tap kagi-framework/kagi
-brew install kagi
+brew tap runar-labs/runar
+brew install runar
 ```
 
 ### Docker
 
-You can also run Kagi using Docker:
+You can also run Runar using Docker:
 
 ```bash
-docker pull kagi-framework/kagi:latest
-docker run -it kagi-framework/kagi:latest
+docker pull runar-labs/runar:latest
+docker run -it runar-labs/runar:latest
 ```
 
 ## Next Steps
 
-Now that you have Kagi installed, you can:
+Now that you have Runar installed, you can:
 
-- Follow the [Quick Start Guide](quickstart) to create your first Kagi application
+- Follow the [Quick Start Guide](quickstart) to create your first Runar application
 - Explore the [API Reference](../services/api) to learn about available functionality
 - Check out the [Example Service](getting-started/example) for a complete implementation

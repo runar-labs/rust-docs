@@ -1,6 +1,6 @@
 # Documentation Updates for Macros System
 
-This document summarizes the documentation updates made to reflect the improvements to Kagi's macros system, particularly the successful implementation of the runtime registration approach.
+This document summarizes the documentation updates made to reflect the improvements to Runar's macros system, particularly the successful implementation of the runtime registration approach.
 
 ## Updates Made
 
@@ -24,23 +24,23 @@ This document summarizes the documentation updates made to reflect the improveme
 
 ### Support Documentation
 
-1. **`/kagi_macros/README.md`**
+1. **`/runar_macros/README.md`**
    - Substantially updated with information about the implementation approaches
    - Added a "Testing with Macros" section with code examples
    - Updated the development status to reflect successful testing
    - Added links to the proper documentation
 
-2. **`/kagi_macros/CHANGELOG.md`**
+2. **`/runar_macros/CHANGELOG.md`**
    - Added entries for the runtime registration system implementation
    - Added entries for fixed methods in the service registry
    - Added entries for other fixes and improvements
 
-3. **`/kagi_macros/DEBUGGING.md`**
+3. **`/runar_macros/DEBUGGING.md`**
    - Added section on debugging registration approaches
    - Added tips for debugging in test environments
    - Added more comprehensive troubleshooting steps
 
-4. **`/kagi_macros/IMPLEMENTATION_PLAN.md`**
+4. **`/runar_macros/IMPLEMENTATION_PLAN.md`**
    - Updated to mark completed items
    - Added key achievements section
    - Updated status of implementation phases
@@ -72,7 +72,7 @@ This document summarizes the documentation updates made to reflect the improveme
 
 # Documentation Updates for Core Systems
 
-This document summarizes the documentation updates made to reflect the core systems in Kagi, including the Context System, ValueMap (VMap), and Logging System.
+This document summarizes the documentation updates made to reflect the core systems in Runar, including the Context System, ValueMap (VMap), and Logging System.
 
 ## Updates Made
 
@@ -135,7 +135,7 @@ This document summarizes the documentation updates made to reflect the core syst
 ## Key Improvements Highlighted
 
 1. **Comprehensive Core Documentation**
-   - Detailed explanations of fundamental Kagi abstractions
+   - Detailed explanations of fundamental Runar abstractions
    - Clear examples showing proper usage patterns
    - Visual diagrams to aid understanding
 
@@ -164,7 +164,7 @@ This document summarizes the documentation updates made to reflect the core syst
 
 # Documentation Updates for Request Handling
 
-This document summarizes the documentation updates made to reflect the best practices for request handling in Kagi, including the transition from `process_request` to `handle_request` and guidelines for JSON/VMap usage.
+This document summarizes the documentation updates made to reflect the best practices for request handling in Runar, including the transition from `process_request` to `handle_request` and guidelines for JSON/VMap usage.
 
 ## Updates Made
 
@@ -217,7 +217,7 @@ This document summarizes the documentation updates made to reflect the best prac
    - Improved performance by avoiding unnecessary serialization/deserialization
 
 3. **Context-Aware Logging**
-   - Integration with Kagi's logging system
+   - Integration with Runar's logging system
    - Structured logging for better traceability
    - Appropriate log levels for different operation stages
 
@@ -282,11 +282,11 @@ To prepare the documentation for publication, we've made the following key impro
 - Provided clear examples of what not to do
 - Contrasted anti-patterns with best practices to reinforce good habits
 
-These improvements have significantly enhanced the quality and usability of the Kagi documentation, making it ready for publication and ensuring it will serve as a valuable resource for developers using the framework. 
+These improvements have significantly enhanced the quality and usability of the Runar documentation, making it ready for publication and ensuring it will serve as a valuable resource for developers using the framework. 
 
 # Documentation Updates for Service Implementation Testing and Best Practices
 
-This document summarizes the documentation updates and code improvements made to enhance service implementations in Kagi, including testing strategies and advanced best practices.
+This document summarizes the documentation updates and code improvements made to enhance service implementations in Runar, including testing strategies and advanced best practices.
 
 ## Updates Made
 

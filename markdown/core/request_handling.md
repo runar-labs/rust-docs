@@ -1,6 +1,6 @@
 # Request Handling Best Practices
 
-This document outlines the recommended practices for implementing the `handle_request` method in services and working with request data within the Kagi framework.
+This document outlines the recommended practices for implementing the `handle_request` method in services and working with request data within the Runar framework.
 
 ## Table of Contents
 
@@ -68,7 +68,7 @@ This approach has several benefits:
 
 ## Data Format Handling
 
-The Kagi service architecture supports two primary data formats: JSON and VMap. Follow these best practices:
+The Runar service architecture supports two primary data formats: JSON and VMap. Follow these best practices:
 
 ### When to use JSON vs VMap
 

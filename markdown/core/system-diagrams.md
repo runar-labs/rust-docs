@@ -1,6 +1,6 @@
-# Kagi Node System Diagrams
+# Runar Node System Diagrams
 
-This document provides a comprehensive collection of system diagrams illustrating the various flows and interactions within the Kagi node system.
+This document provides a comprehensive collection of system diagrams illustrating the various flows and interactions within the Runar node system.
 
 ## Table of Contents
 1. [Sequence Diagrams](#sequence-diagrams)

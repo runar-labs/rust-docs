@@ -1,6 +1,6 @@
-# Kagi Node Macros System
+# Runar Node Macros System
 
-This document describes the macro system for the Kagi Node architecture. Macros are the **recommended way** to define services, actions, and event subscriptions in Kagi applications. They provide a declarative, concise approach that significantly reduces boilerplate code.
+This document describes the macro system for the Runar Node architecture. Macros are the **recommended way** to define services, actions, and event subscriptions in Runar applications. They provide a declarative, concise approach that significantly reduces boilerplate code.
 
 ## Table of Contents
 
@@ -19,11 +19,11 @@ This document describes the macro system for the Kagi Node architecture. Macros 
 
 ## Introduction
 
-The Kagi Node macro system is the **recommended approach** for building Kagi services. It provides a declarative way to define services, actions, and event subscriptions. The macros significantly reduce boilerplate code while preserving the architectural principles of the Kagi Node system. The macros internally use the existing API, making them fully compatible with manual implementations.
+The Runar Node macro system is the **recommended approach** for building Runar services. It provides a declarative way to define services, actions, and event subscriptions. The macros significantly reduce boilerplate code while preserving the architectural principles of the Runar Node system. The macros internally use the existing API, making them fully compatible with manual implementations.
 
 ### Implementation Approaches
 
-The Kagi macro system supports two implementation approaches:
+The Runar macro system supports two implementation approaches:
 
 1. **Distributed Slices (Compile-time)**: Using the `linkme` crate to register handlers, actions, and subscriptions at compile time. This approach is more efficient but requires the unstable `#[used(linker)]` attribute.
 
@@ -38,8 +38,8 @@ The Kagi macro system supports two implementation approaches:
 The `#[service]` macro is used to define a service by decorating a struct. It automatically implements the `AbstractService` trait and its required methods.
 
 ```rust
-use kagi_node::prelude::*;
-use kagi_macros::service;
+use runar_node::prelude::*;
+use runar_macros::service;
 
 #[service(
     name = "data_service",
@@ -69,20 +69,17 @@ impl DataService {
 #### Features
 
 The `#[service]` macro:
-- Automatically implements the `AbstractService` trait
-- Generates `name()`, `path()`, `description()`, and `version()` methods
-- Creates empty default implementations for `init()`, `start()`, and `stop()`
-- Implements `handle_request` that automatically routes requests to action handlers
+- Automatically implements the `Service` trait
+- Generates `name()` and `path()` methods
+- Creates default implementations for service lifecycle methods
+- Sets up request routing to action handlers
 
 #### Parameters
 
 - `name`: The name of the service (required)
-- `path`: Custom path for the service (optional, defaults to the same value as `name`)
-  - If omitted, defaults to `/{name}` where `{name}` is the service name
-  - When specified, the value is used exactly as provided (including any leading slashes)
-  - **Important**: The service path is fundamental to the core routing mechanism and is used throughout the system to locate the appropriate service/action handler
-- `description`: A description of the service (optional, defaults to "{struct_name} service")
-- `version`: The version of the service (optional, defaults to "1.0.0")
+- `path`: The URL path for the service (required)
+  - Used for routing requests to the service
+  - Should match the service name for consistency
 
 > **Note**: When using `node.call()`, you should use the service name directly (e.g., `node.call("service_name", "operation", params)`) regardless of the path configuration. Internally, the system uses the path for routing the request to the correct service and action handler. The HTTP gateway (when used) will also use this path to create endpoints, but that's an external feature built on top of the core routing system.
 
@@ -90,12 +87,30 @@ The `#[service]` macro:
 
 ### `#[action]` Macro
 
-The `#[action]` macro decorates methods to define them as action handlers that can be called through the service's request handling system. These actions are automatically mapped to operations in the `handle_request` method of the service.
+The `#[action]` macro decorates methods to define them as action handlers that can be called through the service's request handling system. Actions can be called via HTTP requests or direct service calls.
+
+#### Basic Usage
 
 ```rust
-use kagi_macros::action;
+#[action]
+async fn add(&self, a: f64, b: f64, ctx: &RequestContext) -> Result<f64> {
+    Ok(a + b)
+}
+```
+
+#### With Custom Path
+
+```rust
+#[action(path = "custom_path")]
+async fn custom_action(&self, id: i32, ctx: &RequestContext) -> Result<MyData> {
+    // Implementation
+}
+```
+
+```rust
+use runar_macros::action;
 use anyhow::Result;
-use kagi_node::services::ServiceResponse;
+use runar_node::services::RequestContext;
 
 impl DataService {
     // Parameters-only pattern
@@ -214,52 +229,48 @@ The macro automatically generates appropriate routing code based on the paramete
 The `#[subscribe]` macro defines event subscriptions that allow services to react to events from specified topics.
 
 ```rust
-use kagi_macros::subscribe;
-use anyhow::Result;
-use kagi_node::services::{RequestContext, ValueType};
+use runar_macros::subscribe;
 
-impl DataService {
-    #[subscribe("data/created")]
-    async fn handle_data_created(&mut self, context: &RequestContext, payload: ValueType) -> Result<()> {
-        if let ValueType::Json(data) = payload {
-            // Process the created data event
-            println!("Data created event received: {:?}", data);
-            // Potentially update service state...
-        }
-        Ok(())
-    }
-}
-```
-
-The `#[subscribe]` macro:
-- Automatically registers a subscription for the specified topic
-- Sets up event handlers that are called when events are published to that topic
-- Supports mutable self references to update service state based on events
-- Works with both distributed slices and runtime registration approaches
-
-### `#[publish]` Macro
-
-The `#[publish]` macro simplifies publishing events to a specific topic.
-
-```rust
-use kagi_macros::publish;
-
-// Define a function that publishes events
-#[publish("data/created")]
-async fn publish_data_created(data: DataRecord) -> Result<()> {
-    // Prepare event payload
-    let payload = json!({
-        "id": data.id,
-        "name": data.name,
-        "value": data.value,
-        "created_at": data.created_at
-    });
-    
-    // The publish macro automatically converts this into a publish call
-    // and returns the Result from the publish operation
+#[subscribe(path = "math/my_data_changed")]
+async fn on_my_data_changed(&self, data: MyData, ctx: &EventContext) -> Result<()> {
+    // Handle the event
     Ok(())
 }
 ```
+
+#### Features
+
+- Subscribes to the specified path
+- Automatically deserializes messages to the parameter type
+- Receives an `EventContext` for additional context
+
+#### Parameters
+
+- `path`: The topic path to subscribe to (required)
+
+### `#[publish]` Macro
+
+The `#[publish]` macro automatically publishes the result of an action to a specified topic. It's typically used in combination with `#[action]`.
+
+```rust
+use runar_macros::{publish, action};
+
+#[publish(path = "my_data_auto")]
+#[action(path = "my_data")]
+async fn get_my_data(&self, id: i32, ctx: &RequestContext) -> Result<MyData> {
+    // Implementation that returns MyData
+}
+```
+
+#### Features
+
+- Publishes the action result to the specified path
+- Works with any serializable return type
+- Must be used with `#[action]`
+
+#### Parameters
+
+- `path`: The topic path to publish to (required)
 
 > **Note**: The `#[publish]` macro is a convenience wrapper around the `context.publish()` method. It automatically creates the necessary code to publish an event to the specified topic.
 
@@ -271,7 +282,7 @@ The runtime registration approach makes testing services with macros straightfor
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kagi_node::test_utils::TestNode;
+    use runar_node::test_utils::TestNode;
 
     #[tokio::test]
     async fn test_create_record() {
@@ -305,8 +316,8 @@ The macros use runtime registration in test environments automatically, so you d
 Here's a complete example of a service defined using the macro system:
 
 ```rust
-use kagi_node::prelude::*;
-use kagi_macros::{service, action, process, subscribe};
+use runar_node::prelude::*;
+use runar_macros::{service, action, process, subscribe};
 use anyhow::Result;
 use std::collections::HashMap;
 use chrono::Utc;
@@ -529,7 +540,7 @@ Future enhancements to the macro system will include:
 4. More sophisticated event handling capabilities
 5. Built-in parameter validation and conversion
 
-Stay tuned for updates to the macro system as Kagi continues to evolve.
+Stay tuned for updates to the macro system as Runnar continues to evolve.
 
 ## Action Delegation Details
 

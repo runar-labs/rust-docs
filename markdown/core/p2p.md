@@ -30,7 +30,7 @@ The P2P transport layer provides:
 - QUIC-based reliable transport
 - Network-scoped DHT for decentralized storage
 - Secure peer authentication and authorization
-- Integration with the Kagi node service architecture
+- Integration with the Runar node service architecture
 - Event-based message routing and delivery
 
 ## Core Components
@@ -278,7 +278,7 @@ impl P2PTransport {
             .with_max_idle_timeout(Duration::from_secs(30))
             .with_max_concurrent_bidi_streams(100u32)
             .with_max_concurrent_uni_streams(100u32)
-            .with_application_protocols(vec!["kagi-p2p-1".into()])
+            .with_application_protocols(vec!["runar-p2p-1".into()])
     }
 }
 ```
@@ -348,7 +348,7 @@ impl DHTNode {
 
 ### Service Integration
 
-The P2P transport integrates with Kagi services through the service registry:
+The P2P transport integrates with Runar services through the service registry:
 
 ```rust
 impl P2PTransport {

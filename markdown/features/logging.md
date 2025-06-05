@@ -6,7 +6,7 @@
 - [Introduction](#introduction)
 ## Overview
 
-This document outlines the standard approach for logging within the Kagi codebase, including both application code and test code. Instead of using `println!()` statements, all logging should use the structured logging framework provided by the project, which allows for consistent formatting, level-based filtering, and component-specific logging.
+This document outlines the standard approach for logging within the Runar codebase, including both application code and test code. Instead of using `println!()` statements, all logging should use the structured logging framework provided by the project, which allows for consistent formatting, level-based filtering, and component-specific logging.
 
 ## Core Principles
 
@@ -100,7 +100,7 @@ Log levels can be controlled using the `RUST_LOG` environment variable. For exam
 
 ```bash
 RUST_LOG=debug cargo test
-RUST_LOG=info,kagi_node::p2p=debug cargo run
+RUST_LOG=info,runar_node::p2p=debug cargo run
 ```
 
 ## Examples

@@ -1,6 +1,6 @@
-# Kagi Node API Documentation
+# Runar Node API Documentation
 
-This document describes the API for developing services in the Kagi Node system, including service creation, action implementation, event publishing, and event subscription patterns.
+This document describes the API for developing services in the Runar Node system, including service creation, action implementation, event publishing, and event subscription patterns.
 
 ## Table of Contents
 
@@ -25,9 +25,9 @@ This document describes the API for developing services in the Kagi Node system,
 
 ## Introduction
 
-The Kagi Node system follows a modular, service-oriented architecture where each component is implemented as a service. This document explains how to develop services, implement actions/operations, and work with the event-driven pub/sub system.
+The Runar Node system follows a modular, service-oriented architecture where each component is implemented as a service. This document explains how to develop services, implement actions/operations, and work with the event-driven pub/sub system.
 
-Services in Kagi are isolated components that communicate with each other only through well-defined interfaces (request/response and publish/subscribe patterns). The system is designed to be extensible and to support distributed deployment.
+Services in Runar are isolated components that communicate with each other only through well-defined interfaces (request/response and publish/subscribe patterns). The system is designed to be extensible and to support distributed deployment.
 
 ## Service Definition
 
@@ -42,7 +42,7 @@ Here's a minimal example:
 ```rust
 use anyhow::Result;
 use async_trait::async_trait;
-use kagi_node::services::{
+use runar_node::services::{
     AbstractService, ServiceRequest, ServiceResponse, 
     RequestContext, ResponseStatus, ValueType, ServiceState
 };
@@ -147,7 +147,7 @@ impl AbstractService for MyService {
 
 ### Service Lifecycle
 
-Services in Kagi go through a well-defined lifecycle:
+Services in Runar go through a well-defined lifecycle:
 
 1. **Creation**: The service object is instantiated.
 2. **Initialization**: The `init` method is called, allowing the service to set up resources, establish subscriptions, etc.
@@ -312,7 +312,7 @@ This pattern ensures services remain isolated and only communicate through well-
 
 ### Remote Service Communication
 
-Kagi also supports calling services that are running on remote nodes through the P2P network:
+Runar also supports calling services that are running on remote nodes through the P2P network:
 
 ```mermaid
 sequenceDiagram
@@ -367,7 +367,7 @@ flowchart TD
 
 ## Event System
 
-Kagi includes a distributed event system that allows services to publish and subscribe to events. The event system provides a way for services to communicate asynchronously.
+Runar includes a distributed event system that allows services to publish and subscribe to events. The event system provides a way for services to communicate asynchronously.
 
 ### Event Distribution
 
@@ -657,7 +657,7 @@ match self.validate_input(request) {
 
 ### Parameter Extraction with Specialized Macros
 
-The Kagi framework provides specialized macros for cleaner parameter extraction:
+The Runar framework provides specialized macros for cleaner parameter extraction:
 
 ```rust
 // String parameter extraction

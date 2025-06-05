@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Kagi Logging System provides a consistent, context-aware logging interface that works seamlessly in both asynchronous and synchronous code. Through clever use of macros, it eliminates the need to handle `.await` calls manually while ensuring that contextual information is uniformly included.
+The Runar Logging System provides a consistent, context-aware logging interface that works seamlessly in both asynchronous and synchronous code. Through clever use of macros, it eliminates the need to handle `.await` calls manually while ensuring that contextual information is uniformly included.
 
 ## Key Features
 
@@ -206,7 +206,7 @@ Logging can be configured at several levels:
 Logger::global().set_level(LogLevel::Info);
 
 // Configure outputs
-Logger::global().add_output(FileOutput::new("/var/log/kagi.log"));
+Logger::global().add_output(FileOutput::new("/var/log/runar.log"));
 Logger::global().add_output(ConsoleOutput::new());
 
 // Set filter patterns
@@ -219,13 +219,13 @@ The logging system respects environment variables for dynamic configuration:
 
 ```
 # Set default log level
-export KAGI_LOG_LEVEL=info
+export RUNAR_LOG_LEVEL=info
 
 # Enable debug logs for specific components
-export KAGI_LOG_FILTER="p2p=debug,node=debug"
+export RUNAR_LOG_FILTER="p2p=debug,node=debug"
 
 # Configure output format
-export KAGI_LOG_FORMAT="json"
+export RUNAR_LOG_FORMAT="json"
 ```
 
 ## Integration with Other Systems

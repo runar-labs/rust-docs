@@ -2,11 +2,11 @@
 
 ## Overview
 
-This document outlines the lifecycle of services in Kagi, focusing on proper initialization, operation, and shutdown. Following these lifecycle best practices ensures reliable service behavior, efficient resource usage, and predictable interactions between services.
+This document outlines the lifecycle of services in Runar, focusing on proper initialization, operation, and shutdown. Following these lifecycle best practices ensures reliable service behavior, efficient resource usage, and predictable interactions between services.
 
 ## Service States
 
-A Kagi service transitions through several states during its lifecycle:
+A Runar service transitions through several states during its lifecycle:
 
 1. **Created**: Initial state when a service instance is constructed
 2. **Initialized**: Service has completed its initialization and is ready to start

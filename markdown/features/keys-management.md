@@ -295,7 +295,7 @@ so if the pub/sub api is available at that popint of the process and if there is
 instead of   
 component A -> http request -> component B
 shouod be
-component A -> reqeust or publish event -> componetn B using the kagi framework.
+component A -> reqeust or publish event -> componetn B using the Runnar framework.
 
 when things needs to go external and nned to use http or websockets consider using the gateway service that allows to expose actions/events as REST API or the same pub/sub API via websockets ..  consider usign teh gateay before implemeting a custom web server.
 

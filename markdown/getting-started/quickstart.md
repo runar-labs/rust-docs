@@ -1,234 +1,157 @@
-# Kagi Quick Start Guide
+# Runar Quick Start Guide
 
-This guide will help you get started with Kagi by building a simple application.
+This guide will help you get started with Runar by building a simple application.
 
 ## Creating a New Project
 
 Start by creating a new Rust project:
 
 ```bash
-cargo new kagi-hello-world
-cd kagi-hello-world
+cargo new runar-hello-world
+cd runar-hello-world
 ```
 
-Add Kagi as a dependency in your `Cargo.toml` file:
+Add Runar as a dependency in your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-kagi_node = "0.1.0"
-kagi_macros = "0.1.0"
+runa_node = { path = "../runa-node" }
+runa_macros = { path = "../runa-macros" }
+runa_common = { path = "../runa-common" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+futures = "0.3"
 ```
 
 ## Creating a Simple Service
 
-Let's create a simple "greeting" service. Replace the contents of `src/main.rs` with the following code:
+Let's create a simple math service. Replace the contents of `src/main.rs` with the following code:
 
 ```rust
-use kagi_node::prelude::*;
-use kagi_node::macros::*;
 use anyhow::Result;
-use serde_json::json;
+use futures::lock::Mutex;
+use runar_common::types::ArcValueType;
+use runar_macros::{action, service};
+use runar_node::services::RequestContext;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 // Define a service
-#[kagi::service(name = "greeter", description = "A greeting service")]
-struct GreeterService {
-    greeting_formats: std::collections::HashMap<String, String>,
+#[service(
+    name = "math",
+    path = "math"
+)]
+struct MathService {
+    store: Arc<Mutex<HashMap<String, ArcValueType>>>,
 }
 
-impl GreeterService {
+impl MathService {
     // Constructor
     fn new() -> Self {
-        let mut greeting_formats = std::collections::HashMap::new();
-        greeting_formats.insert("standard".to_string(), "Hello, {}!".to_string());
-        greeting_formats.insert("friendly".to_string(), "Hey there, {}! How are you?".to_string());
-        greeting_formats.insert("formal".to_string(), "Good day, {}. It's a pleasure to meet you.".to_string());
-        
-        Self { greeting_formats }
-    }
-    
-    // Action handler for generating greetings
-    #[action("greet")]
-    async fn greet(&self, _context: &RequestContext, 
-                  #[param("name")] name: String,
-                  #[param("format", default = "standard")] format: String) -> Result<ServiceResponse> {
-        
-        // Get the greeting format (default to standard if not found)
-        let format_template = self.greeting_formats
-            .get(&format)
-            .unwrap_or(&self.greeting_formats["standard"])
-            .clone();
-        
-        // Generate the greeting
-        let greeting = format_template.replace("{}", &name);
-        
-        // Return the response
-        Ok(ServiceResponse {
-            status: ResponseStatus::Success,
-            message: greeting.clone(),
-            data: Some(vmap! {
-                "greeting" => greeting,
-                "format_used" => format
-            }),
-        })
-    }
-    
-    // Action handler for adding new greeting formats
-    #[action("add_format")]
-    async fn add_format(&self, context: &RequestContext,
-                       #[param("name")] name: String,
-                       #[param("template")] template: String) -> Result<ServiceResponse> {
-        
-        // Add the new format
-        {
-            let mut formats = self.greeting_formats.clone();
-            formats.insert(name.clone(), template.clone());
-            self.greeting_formats = formats;
+        Self {
+            store: Arc::new(Mutex::new(HashMap::new())),
         }
-        
-        // Publish event about the new format
-        let event_data = json!({
-            "format_name": name,
-            "template": template,
-            "timestamp": chrono::Utc::now().to_rfc3339()
-        });
-        
-        context.publish("greeter/format_added", event_data).await?;
-        
-        // Return success response
-        Ok(ServiceResponse {
-            status: ResponseStatus::Success,
-            message: format!("Added new greeting format: {}", name),
-            data: Some(vmap! {
-                "name" => name,
-                "template" => template
-            }),
-        })
     }
     
-    // Event handler for demonstration
-    #[subscribe("greeter/format_added")]
-    async fn handle_format_added(&self, payload: serde_json::Value) -> Result<()> {
-        if let (Some(name), Some(template)) = (
-            payload.get("format_name").and_then(|v| v.as_str()),
-            payload.get("template").and_then(|v| v.as_str())
-        ) {
-            println!("EVENT: New greeting format added: {} with template: {}", name, template);
+    // Simple addition action
+    #[action]
+    async fn add(&self, a: f64, b: f64, _ctx: &RequestContext) -> Result<f64> {
+        Ok(a + b)
+    }
+    
+    // Subtraction action with custom path
+    #[action(path = "subtract")]
+    async fn sub(&self, a: f64, b: f64, _ctx: &RequestContext) -> Result<f64> {
+        Ok(a - b)
+    }
+    
+    // Multiplication with error handling
+    #[action]
+    async fn multiply(&self, a: f64, b: f64, _ctx: &RequestContext) -> Result<f64> {
+        Ok(a * b)
+    }
+    
+    // Division with error handling
+    #[action]
+    async fn divide(&self, a: f64, b: f64, _ctx: &RequestContext) -> Result<f64> {
+        if b == 0.0 {
+            return Err(anyhow::anyhow!("Cannot divide by zero"));
         }
-        Ok(())
+        Ok(a / b)
     }
 }
 
-// Application entry point
-#[kagi::main]
+#[tokio::main]
 async fn main() -> Result<()> {
-    // Create configuration
-    let config = NodeConfig::new(
-        "greeter_node",
-        "./data",
-        "./data/db",
-    );
+    // Create a node configuration
+    let mut config = runar_node::config::NodeConfig::new("math-node", "test-network");
     
-    // Create service
-    let greeter_service = GreeterService::new();
+    // Disable networking for this simple example
+    config.network_config = None;
     
-    // Create and start the node
-    Node::builder()
-        .with_config(config)
-        .add_service(greeter_service)
-        .build_and_run()
-        .await
-}
-
-## Parameter Extraction
-
-When working with incoming requests or event data, Kagi provides specialized macros for parameter extraction:
-
-```rust
-// In an action handler:
-async fn handle_user_action(&self, request: ServiceRequest) -> Result<ServiceResponse> {
-    // Extract required parameters
-    let username = vmap_str!(request.params, "username" => "");
-    if username.is_empty() {
-        return Ok(ServiceResponse::error("Username is required"));
+    // Create the node
+    let mut node = runar_node::Node::new(config).await?;
+    
+    // Create and add our math service
+    let math_service = MathService::new();
+    node.add_service(math_service).await?;
+    
+    // Start the node
+    node.start().await?;
+    
+    // Make some test requests
+    let params = runar_common::hmap! {
+        "a" => 10.0,
+        "b" => 5.0
+    };
+    
+    // Test addition
+    if let Ok(Some(result)) = node.request("math/add", Some(params.into())).await {
+        println!("10 + 5 = {}", result);
     }
     
-    // Extract optional parameters with defaults
-    let age = vmap_i32!(request.params, "age" => 0);
-    let is_admin = vmap_bool!(request.params, "is_admin" => false);
-    let scores = vmap_vec!(request.params, "scores" => Vec::<i32>::new());
+    // Keep the node running
+    tokio::signal::ctrl_c().await?;
     
-    // Extract nested parameters with dot notation
-    let email = vmap_str!(request.params, "contact.email" => "");
+    // Stop the node
+    node.stop().await?;
     
-    // Your logic here...
-    
-    // Return response
-    Ok(ServiceResponse::success("User processed successfully"))
+    Ok(())
 }
-```
 
-These specialized macros provide cleaner and more robust parameter extraction compared to manual approaches.
+## Testing the Service
 
-## Running the Application
-
-Build and run your application:
+You can now build and run your service:
 
 ```bash
 cargo run
 ```
 
-This will start a Kagi node with your greeting service.
+The service will start and execute the test requests defined in the `main` function, which includes a simple addition operation. You should see output similar to:
 
-## Interacting with the Service
-
-You can interact with your service using the Kagi CLI or by writing a client application.
-
-### Using the Kagi CLI
-
-Install the Kagi CLI if you haven't already:
-
-```bash
-cargo install kagi-cli
 ```
-
-Send a request to your service:
-
-```bash
-kagi-cli request greeter greet --param name="World"
-```
-
-You should see a response with the greeting "Hello, World!".
-
-Try different formats:
-
-```bash
-kagi-cli request greeter greet --param name="World" --param format="friendly"
-```
-
-Add a new greeting format:
-
-```bash
-kagi-cli request greeter add_format --param name="enthusiastic" --param template="WOW!!! {} !!! AMAZING!!!"
-```
-
-Test the new format:
-
-```bash
-kagi-cli request greeter greet --param name="World" --param format="enthusiastic"
+10 + 5 = 15
 ```
 
 ## Next Steps
 
-You've created a simple Kagi service! Here are some next steps to explore:
+You've created a simple Runar service! Here are some next steps to explore:
 
-- Learn about [Kagi's Architecture](../core/architecture)
+- Learn about [Runar's Architecture](../core/architecture)
 - Understand [Service Definition](../development/macros)
 - Explore [Action Handlers](../services/api#action-handlers)
 - Set up [Event Subscriptions](../services/api#event-system)
-- Build a [Complete Example Service](getting-started/example)
+- Check out the [Examples](../examples) for more complex use cases
 
-Happy coding with Kagi!
+## Extending the Service
+
+To extend this service, you can:
+
+1. Add more mathematical operations
+2. Implement event publishing for operations
+3. Add state management using the provided store
+4. Create client applications that connect to the service
+
+Happy coding with Runar!

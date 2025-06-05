@@ -1,16 +1,16 @@
 /**
- * Example file demonstrating the service and action macros in KAGI.
+ * Example file demonstrating the service and action macros in Runnar.
  * 
  * This file shows how to create services with the #[service] macro and
  * define action handlers with the #[action] macro.
  */
 
 use anyhow::Result;
-use kagi_macros::{action, service, subscribe};
-use kagi_node::services::{
+use runar_macros::{action, service, subscribe};
+use runar_node::services::{
     AbstractService, RequestContext, ServiceResponse, ValueType, ResponseStatus
 };
-use kagi_node::vmap;
+use runar_node::vmap;
 
 /// Example service that performs data processing operations
 /// 
@@ -198,7 +198,7 @@ impl Clone for EventHandlerService {
 /// Example of using the services with the Node API
 #[tokio::main]
 async fn example_usage() -> Result<()> {
-    use kagi_node::node::{Node, NodeConfig};
+    use runar_node::node::{Node, NodeConfig};
     use std::time::Duration;
     
     // Create and configure the node

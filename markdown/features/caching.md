@@ -128,7 +128,7 @@ flowchart TD
 Enable caching for actions using macros:
 - Example: `#[cached(ttl = 60)]` or `#[action(cache(enabled = true, ttl = 60))]` in service definitions
 
-> **Note**: Kagi macros support both compile-time (distributed slices) and runtime registration approaches, making them fully compatible with testing environments without requiring unstable Rust features.
+> **Note**: Runar macros support both compile-time (distributed slices) and runtime registration approaches, making them fully compatible with testing environments without requiring unstable Rust features.
 
 ### Transparent Operation
 
@@ -310,10 +310,10 @@ When using the DHT cache backend, the system integrates with the P2P transport l
 ### Service Definition Example
 
 ```rust
-use kagi_node::prelude::*;
+use runar_node::prelude::*;
 
 // Define service with caching using macros
-#[kagi::service]
+#[runar_macros::service]
 struct UserService {
     #[inject]
     db_connection: DatabaseConnection,

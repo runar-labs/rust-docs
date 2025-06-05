@@ -1,6 +1,6 @@
-# Kagi Core Documentation
+# Runar Core Documentation
 
-This directory contains documentation for the core components of the Kagi architecture. These documents explain the fundamental abstractions and systems that power the Kagi node.
+This directory contains documentation for the core components of the Runar architecture. These documents explain the fundamental abstractions and systems that power the Runar node.
 
 ## Core Components
 
@@ -15,7 +15,7 @@ VMap is a core abstraction for working with structured data that:
 - Provides type-safe parameter extraction
 - Reduces boilerplate code through intuitive macros
 - Offers comprehensive error handling
-- Integrates with Kagi's value type system
+- Integrates with Runar's value type system
 
 ### [Logging System](logging.md)
 The Logging System provides a consistent, context-aware logging interface that:
@@ -40,7 +40,7 @@ The Service Lifecycle document details:
 
 ## Core Concepts Relationships
 
-Understanding how these core components relate to each other is essential for effective Kagi development:
+Understanding how these core components relate to each other is essential for effective Runar development:
 
 1. **Service Lifecycle → Request Handling**:
    - Services follow a lifecycle (create → initialize → run → stop)
@@ -92,7 +92,7 @@ This diagram illustrates the relationships:
 
 ## Common Anti-Patterns to Avoid
 
-When developing services in Kagi, be aware of these common anti-patterns that can lead to inefficient or problematic code:
+When developing services in Runar, be aware of these common anti-patterns that can lead to inefficient or problematic code:
 
 ### Subscription Setup During Request Handling
 
@@ -148,7 +148,7 @@ For more information on the overall architecture, see:
 
 ## Contributing to Documentation
 
-When updating or creating documentation in the Kagi core system, please follow these guidelines to maintain consistency:
+When updating or creating documentation in the Runar core system, please follow these guidelines to maintain consistency:
 
 ### Documentation Structure
 
@@ -181,4 +181,4 @@ Each core documentation file should include these standard sections:
 - Use consistent formatting with syntax highlighting
 - Include comments in code examples
 
-By following these guidelines, we can maintain a high-quality, consistent documentation set that helps developers effectively use the Kagi framework. 
+By following these guidelines, we can maintain a high-quality, consistent documentation set that helps developers effectively use the Runar framework. 

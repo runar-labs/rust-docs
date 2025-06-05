@@ -1,6 +1,6 @@
 # Example Service Implementation
 
-This document provides a complete example of a service implementation in the Kagi node system, demonstrating both request-response and publish-subscribe patterns.
+This document provides a complete example of a service implementation in the Runar node system, demonstrating both request-response and publish-subscribe patterns.
 
 
 ## Table of Contents
@@ -12,7 +12,7 @@ This document provides a complete example of a service implementation in the Kag
 
 ## Introduction
 
-This document demonstrates how to implement services using the Kagi service macros. The examples show both traditional manual implementations and the preferred macro approach.
+This document demonstrates how to implement services using the Runar service macros. The examples show both traditional manual implementations and the preferred macro approach.
 
 ## Service Implementation with Macros
 
@@ -21,9 +21,9 @@ Below is an example of a `DataService` that manages data records, with operation
 ```rust
 use anyhow::{anyhow, Result};
 use chrono::Utc;
-use kagi_node::services::{RequestContext, ValueType};
-use kagi_node::vmap;
-use kagi_macros::{service, action, subscribe};
+use runar_node::services::{RequestContext, ValueType};
+use runar_node::vmap;
+use runar_macros::{service, action, subscribe};
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -311,12 +311,12 @@ impl Clone for DataMonitorService {
 
 ## Using Services
 
-Here's an example of how to use these services in a Kagi node, demonstrating both direct parameter passing and map-based parameters:
+Here's an example of how to use these services in a Runar node, demonstrating both direct parameter passing and map-based parameters:
 
 ```rust
 use anyhow::Result;
-use kagi_node::node::{Node, NodeConfig};
-use kagi_node::vmap;
+use runar_node::node::{Node, NodeConfig};
+use runar_node::vmap;
 use tokio;
 
 #[tokio::main]

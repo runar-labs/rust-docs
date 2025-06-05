@@ -1,4 +1,4 @@
-# Kagi Node Metrics System
+# Runar Node Metrics System
 
 The Metrics module provides a robust framework for collecting, managing, and exporting metrics in distributed systems. It is designed to be scalable, efficient, and interoperable with modern observability tools, supporting both standard and custom metrics with aggregation across nodes.
 
@@ -220,17 +220,17 @@ impl NetworkMetrics {
 
 The metrics system supports a declarative approach using macros to reduce boilerplate code. This makes it easy to add metrics to services, actions, and events without manually creating and managing metric instances.
 
-> **Implementation Note**: Kagi macros work with both compile-time (using distributed slices) and runtime registration approaches. This means metrics can be easily applied in both production and testing environments without requiring unstable Rust features.
+> **Implementation Note**: Runar macros work with both compile-time (using distributed slices) and runtime registration approaches. This means metrics can be easily applied in both production and testing environments without requiring unstable Rust features.
 
 ### Service-Level Metrics
 
 Apply metrics to an entire service using the `#[metrics]` macro:
 
 ```rust
-use kagi_node::prelude::*;
+use runar_node::prelude::*;
 
 // Define service with automatic metrics collection
-#[kagi::service]
+#[runar_macros::service]
 #[metrics]
 struct UserService {
     #[inject]
@@ -367,10 +367,10 @@ All metrics are automatically registered with the metric registry and included i
 Here's a complete example demonstrating how to use metric macros in a real-world service:
 
 ```rust
-use kagi_node::prelude::*;
+use runar_node::prelude::*;
 
 // Define a service with automatic metrics
-#[kagi::service]
+#[runar_macros::service]
 #[metrics(prefix = "api_gateway_")]  // Optional prefix for all metrics
 struct ApiGatewayService {
     #[inject]
@@ -539,7 +539,7 @@ The metrics system seamlessly integrates with P2P networking and DHT operations 
 Apply metrics to P2P transport operations:
 
 ```rust
-use kagi_node::p2p::prelude::*;
+use runar_node::p2p::prelude::*;
 
 // P2P service with automatic metrics
 #[p2p_service]
@@ -609,7 +609,7 @@ impl P2PService {
 Define a DHT service with comprehensive metrics:
 
 ```rust
-use kagi_node::dht::prelude::*;
+use runar_node::dht::prelude::*;
 
 #[dht_service]
 #[metrics]
@@ -719,7 +719,7 @@ The collected metrics can be exported to monitoring systems like Prometheus and 
 ## Implementation Example
 
 ```rust
-use kagi_node::metrics::prelude::*;
+use runar_node::metrics::prelude::*;
 
 // Create a simple counter
 let requests_counter = Counter::new("http_requests_total", "Total HTTP requests")
@@ -773,8 +773,8 @@ MetricsExporter::new()
 ## Service Integration Example
 
 ```rust
-use kagi_node::prelude::*;
-use kagi_node::metrics::prelude::*;
+use runar_node::prelude::*;
+use runar_node::metrics::prelude::*;
 
 struct MyService {
     name: String,

@@ -2,11 +2,11 @@
 
 ## Overview
 
-The Context System is a core component of the Kagi architecture that enables secure and traceable communication between services. This document outlines the design decisions and implementation details of the context system.
+The Context System is a core component of the Runar architecture that enables secure and traceable communication between services. This document outlines the design decisions and implementation details of the context system.
 
 ## Context Types
 
-Kagi uses two distinct context types to clearly separate concerns:
+Runar uses two distinct context types to clearly separate concerns:
 
 ### RequestContext
 

@@ -1,8 +1,8 @@
-# Kagi Overview
+# Runar Overview
 
 ## Introduction
 
-Kagi is a powerful distributed system framework built in Rust. It provides a declarative, Actix-inspired approach to defining services, actions, and event subscriptions for building resilient peer-to-peer applications.
+Runar is a powerful distributed system framework built in Rust. It provides a declarative, Actix-inspired approach to defining services, actions, and event subscriptions for building resilient peer-to-peer applications.
 
 ## Key Features
 
@@ -15,7 +15,7 @@ Kagi is a powerful distributed system framework built in Rust. It provides a dec
 
 ## Core Components
 
-Kagi consists of several core components:
+Runar consists of several core components:
 
 1. **Node**: The main runtime that hosts services and manages communication
 2. **Services**: Independent modules that provide specific functionality
@@ -26,7 +26,7 @@ Kagi consists of several core components:
 
 ## Architecture Overview
 
-The following diagram illustrates the high-level architecture of a Kagi node:
+The following diagram illustrates the high-level architecture of a Runar node:
 
 ```mermaid
 graph TD
@@ -44,30 +44,50 @@ graph TD
 
 ## Service Model
 
-Services in Kagi are defined using a declarative approach with macros:
+Services in Runar are defined using a declarative approach with macros:
 
 ```rust
-#[kagi::service(name = "example_service")]
+use anyhow::Result;
+use runar_macros::{action, service, subscribe};
+use runar_node::services::{RequestContext, EventContext};
+use runar_common::types::ArcValueType; // Assuming ArcValueType might be used
+
+#[service(name = "example_service", path = "example")] // Added path as it's common
 struct ExampleService {
-    // Service state
+    // Service state can be initialized in new()
 }
 
 impl ExampleService {
-    #[action("perform_task")]
-    async fn perform_task(&self, context: &RequestContext, 
-                         #[param("input")] input: String) -> Result<ServiceResponse> {
+    // Constructor following the pattern
+    pub fn new() -> Self {
+        // Initialize service state here
+        Self { }
+    }
+
+    #[action(path = "perform_task")] // path attribute is often used
+    async fn perform_task(&self, ctx: &RequestContext, input: String) -> Result<String> {
         // Handler implementation
+        // Example: Log input and return a response
+        ctx.info(format!("perform_task called with input: {}", input));
+        Ok(format!("Task completed with input: {}", input))
     }
     
-    #[subscribe("event/type")]
-    async fn handle_event(&self, payload: serde_json::Value) -> Result<()> {
+    #[subscribe(path = "event/type")] // path attribute is often used
+    async fn handle_event(&self, ctx: &EventContext, data: Option<ArcValueType>) -> Result<()> {
         // Event handler implementation
+        // Example: Log event data
+        if let Some(event_data) = data {
+            ctx.info(format!("handle_event received data: {:?}", event_data));
+        } else {
+            ctx.info("handle_event received no data".to_string());
+        }
+        Ok(())
     }
 }
 ```
 
 ## Next Steps
 
-- [Installation Guide](installation) - Install Kagi and its dependencies
-- [Quick Start Guide](quickstart) - Build your first Kagi application
+- [Installation Guide](installation) - Install Runar and its dependencies
+- [Quick Start Guide](quickstart) - Build your first Runar application
 - [Architecture](../core/architecture) - Detailed architecture documentation

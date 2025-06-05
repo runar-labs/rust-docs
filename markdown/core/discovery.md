@@ -149,8 +149,8 @@ flowchart TD
 ## Implementation Example
 
 ```rust
-use kagi_node::discovery::prelude::*;
-use kagi_node::keys::AccessToken;
+use runar_node::discovery::prelude::*;
+use runar_node::keys::AccessToken;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 // Set up discovery service

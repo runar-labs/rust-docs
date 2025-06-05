@@ -1,11 +1,11 @@
 # iOS P2P Network Mobile App Specification
 
-This specification defines an iOS mobile application built with Swift, designed to integrate with the Kagi Node P2P network architecture. The app leverages QUIC for transport, Kademlia DHT for decentralized storage, and implements the secure key management system defined in the Keys Management Specification.
+This specification defines an iOS mobile application built with Swift, designed to integrate with the Runar Node P2P network architecture. The app leverages QUIC for transport, Kademlia DHT for decentralized storage, and implements the secure key management system defined in the Keys Management Specification.
 
 ## Table of Contents
 
 1. [Introduction](#introduction)
-2. [Alignment with Kagi Node Architecture](#alignment-with-kagi-node-architecture)
+2. [Alignment with Runar Node Architecture](#alignment-with-runar-node-architecture)
 3. [Key Features](#key-features)
 4. [Requirements](#requirements)
    - [Functional Requirements](#functional-requirements)
@@ -13,7 +13,7 @@ This specification defines an iOS mobile application built with Swift, designed 
 5. [Architecture](#architecture)
    - [Components](#components)
    - [Data Model](#data-model)
-   - [Integration with Kagi Node](#integration-with-kagi-node)
+   - [Integration with Runar Node](#integration-with-runar-node)
 6. [Key Management System](#key-management-system)
    - [Key Types](#key-types)
    - [HD Key Derivation](#hd-key-derivation)
@@ -51,11 +51,11 @@ This specification defines an iOS mobile application built with Swift, designed 
 
 ## Introduction
 
-This mobile application provides a native iOS interface to the Kagi Node P2P network architecture. It implements the cryptographic identity system, transport layer, and distributed hash table functionality defined in the core Kagi specifications, while providing intuitive mobile-specific interfaces for network participation.
+This mobile application provides a native iOS interface to the Runar Node P2P network architecture. It implements the cryptographic identity system, transport layer, and distributed hash table functionality defined in the core Runar specifications, while providing intuitive mobile-specific interfaces for network participation.
 
-## Alignment with Kagi Node Architecture
+## Alignment with Runar Node Architecture
 
-The iOS application fully aligns with the core Kagi Node architecture:
+The iOS application fully aligns with the core Runar Node architecture:
 
 - **P2P Transport Layer**: Implements the QUIC-based transport protocol as defined in the P2P Transport Layer Specification
 - **Key Management**: Follows the hierarchical deterministic (HD) key derivation system defined in the Keys Management Specification
@@ -65,7 +65,7 @@ The iOS application fully aligns with the core Kagi Node architecture:
 
 ## Key Features
 
-- **Full P2P Compatibility**: Seamless interaction with desktop and server Kagi Node instances
+- **Full P2P Compatibility**: Seamless interaction with desktop and server Runar Node instances
 - **Key Management**: Generate, derive, and securely store cryptographic keys according to the Keys Management Specification
 - **QR Code Interface**: Exchange network metadata, access tokens, and connection details through a QR code interface
 - **Modern UI**: SwiftUI-based interface providing intuitive access to P2P functionality
@@ -108,9 +108,9 @@ The iOS application fully aligns with the core Kagi Node architecture:
 ### Components
 
 - **Core Rust Libraries** (compiled for iOS):
-  - `kagi-transport`: Implements QUIC transport, DHT, and message routing
-  - `kagi-keys`: Implements the HD key derivation and token management
-  - `kagi-discovery`: Implements the UDP multicast discovery protocol
+  - `runar-transport`: Implements QUIC transport, DHT, and message routing
+  - `runar-keys`: Implements the HD key derivation and token management
+  - `runar-discovery`: Implements the UDP multicast discovery protocol
   
 - **Swift Wrapper Layer**:
   - FFI bindings to the Rust core
@@ -133,13 +133,13 @@ The application uses the same data model defined in the core specifications:
 - **Connection**: Represents a QUIC connection to a remote peer
 - **NetworkMetadata**: Contains information about a network (name, admin public key, etc.)
 
-### Integration with Kagi Node
+### Integration with Runar Node
 
-The mobile app represents a fully-functional Kagi Node that implements the same interfaces and protocols as the desktop/server version:
+The mobile app represents a fully-functional Runar Node that implements the same interfaces and protocols as the desktop/server version:
 
 ```swift
-/// The primary interface to the Kagi Node functionality
-class KagiNode {
+/// The primary interface to the Runar Node functionality
+class RunarNode {
     /// Initialize the node with configuration
     init(config: NodeConfig) async throws
     
@@ -332,7 +332,7 @@ class QuinnTransport {
 The application implements the message sending and receiving APIs defined in the P2P Transport specification:
 
 ```swift
-extension KagiNode {
+extension RunarNode {
     /// Send a message to a specific peer
     func sendToPeer<T: Encodable>(_ message: T, peerId: PeerId) async throws {
         // Serialize the message using Bincode
@@ -373,7 +373,7 @@ extension KagiNode {
 The application implements DHT operations with caching support:
 
 ```swift
-extension KagiNode {
+extension RunarNode {
     /// Store a value in the DHT with optional caching
     func dhtPut(networkId: NetworkId, key: Data, value: Data, cache: Bool = true) async throws {
         // Store in DHT
@@ -500,7 +500,7 @@ class NetworkMetrics {
 The application implements cache management through service actions:
 
 ```swift
-extension KagiNode {
+extension RunarNode {
     /// Clear cache for a service
     func clearCache(service: String) async throws {
         try await request("\(service)/cache/clear", [:])
@@ -603,7 +603,7 @@ struct DiscoveryMessage: Codable {
 The application discovers peers through both local network multicast and DHT routing:
 
 ```swift
-extension KagiNode {
+extension RunarNode {
     /// Discover peers for a network
     func discoverPeers(for networkId: NetworkId) async -> [DiscoveredPeer] {
         // Get peers from local discovery
@@ -792,7 +792,7 @@ The application uses the following dependencies:
 ```swift
 // Package.swift
 dependencies: [
-    .package(url: "https://github.com/kagi/kagi-node-swift.git", from: "1.0.0"),
+    .package(url: "https://github.com/runar-labs/runar-node-swift.git", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-metrics.git", from: "2.0.0"),
     .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0")
 ]
@@ -926,7 +926,7 @@ The application implements the following security measures:
    networkStore.addNetwork(networkMetadata)
    
    // Join the network
-   try await kagiNode.joinNetwork(
+   try await runarNode.joinNetwork(
        networkId: networkMetadata.networkId,
        accessToken: accessToken
    )
@@ -939,13 +939,13 @@ The application implements the following security measures:
    ```swift
    // Get public endpoint via STUN
    let publicEndpoint = try await natTraversal.getPublicEndpoint(
-       localPort: kagiNode.listeningPort,
+       localPort: runarNode.listeningPort,
        stunServer: "stun.example.com:3478"
    )
    
    // Create connection QR data
    let connectionData = PeerConnectionData(
-       peerId: kagiNode.peerId,
+       peerId: runarNode.peerId,
        networkId: selectedNetwork.networkId,
        address: publicEndpoint,
        token: accessToken
@@ -972,12 +972,12 @@ The application implements the following security measures:
    
    // Perform hole punching
    try await natTraversal.punchHole(
-       localPort: kagiNode.listeningPort,
+       localPort: runarNode.listeningPort,
        peerAddress: connectionData.address
    )
    
    // Connect to the peer
-   let connection = try await kagiNode.connectToPeer(
+   let connection = try await runarNode.connectToPeer(
        peerId: connectionData.peerId,
        networkId: connectionData.networkId,
        address: connectionData.address
@@ -997,7 +997,8 @@ The application implements the following security measures:
    let value = try JSONEncoder().encode(userProfile)
    
    // Store in DHT
-   try await kagiNode.dhtPut(
+   try await runarNode.dhtPut(
+   try await runarNode.dhtPut(
        networkId: selectedNetwork.networkId,
        key: key,
        value: value
@@ -1007,7 +1008,7 @@ The application implements the following security measures:
 3. User retrieves a value from the DHT:
    ```swift
    // Retrieve from DHT
-   if let valueData = try await kagiNode.dhtGet(
+   if let valueData = try await runarNode.dhtGet(
        networkId: selectedNetwork.networkId,
        key: key
    ) {
