@@ -31,12 +31,12 @@ The key management system provides:
 
 ## Key Types
 
-### Master Key
+### User Master Key 
 
 - **Type**: Ed25519 key pair
 - **Purpose**: Root key for network administration
 - **Usage**: Derives network-specific keys
-- **Storage**: Must be securely stored offline
+- **Storage**: Users mobile app safe storage - or offiline storage (LEdger like device)
 - **Backup**: Required, using secure backup procedures
 
 ### Network Key
@@ -48,16 +48,32 @@ The key management system provides:
   - **Private Key**: Signs access tokens
 - **Derivation**: Uses HD derivation path
 - **Management**: One per logical network
+- **Storage**: Users mobile app safe storage - or offiline storage (LEdger like device)
+- **Backup**: Required, using secure backup procedures
+- **Notes**:  This is also the key used to create the QUIC certificates, so QUIC encryption derives from the Network Key
 
-### Peer Key
 
-- **Type**: Ed25519 key pair
-- **Purpose**: Identifies individual peers
+### QUIC Keys
+
+- **Type**: Ed25519 key pair derived from network key
+- **Purpose**: Secure QUIC connections
+- **Components**:
+  - **Public Key**: Used for authentication
+  - **Private Key**: Used for encryption
+- **Derivation**: Uses HD derivation path
+- **Management**: One per network
+- **Storage**: Stored in the node storage. encrypted with the peer Key
+
+### Nodeq Key
+
+- **Type**: Ed25519 key pair derived from master key
+- **Purpose**: Identifies individual peers (nodes participanting in the network)
 - **Components**:
   - **Public Key**: Used for authentication
   - **PeerId**: SHA-256 hash of public key
 - **Generation**: Unique per peer instance
 - **Storage**: Local to peer, not shared
+- **Encryption**: USer to encrypt the node data, all node data that is store is encrypted with this key.
 
 ## HD Key Derivation
 
