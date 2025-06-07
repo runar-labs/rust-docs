@@ -540,7 +540,7 @@ Future enhancements to the macro system will include:
 4. More sophisticated event handling capabilities
 5. Built-in parameter validation and conversion
 
-Stay tuned for updates to the macro system as Runnar continues to evolve.
+Stay tuned for updates to the macro system as runar continues to evolve.
 
 ## Action Delegation Details
 

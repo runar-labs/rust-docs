@@ -1,5 +1,5 @@
 /**
- * Example file demonstrating the service and action macros in Runnar.
+ * Example file demonstrating the service and action macros in runar.
  * 
  * This file shows how to create services with the #[service] macro and
  * define action handlers with the #[action] macro.
