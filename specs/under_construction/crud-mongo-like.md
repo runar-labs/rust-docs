@@ -39,13 +39,13 @@ This service will provide an API that will mimic the Mongo DB API, with the foll
  store/orders/deleteMany
  store/orders/findOneAndUpdate
  
- Ther service will receive paremers and return paremter using a custom struct that follows a specific trait. so the trait allows thage structs to be converted to a HashMap<String, ArcValueType> and back and be builkd from one also.. so when can receive ArcValueType<CustomStruct_For_The_Entity> and return ArcValueType<CustomStruct_For_The_Entity> and internaly transform to HashMap<String, ArcValueType> whyich is what we need internaly to apply our rules and do the SQL queries and then we do it  back to the struct and return.. sot he DEv ux is of usint their own CustomStruct_For_The_Entity and we do the internal conversion
+ Ther service will receive paremers and return paremter using a custom struct that follows a specific trait. so the trait allows thage structs to be converted to a HashMap<String, ArcValue> and back and be builkd from one also.. so when can receive ArcValue<CustomStruct_For_The_Entity> and return ArcValue<CustomStruct_For_The_Entity> and internaly transform to HashMap<String, ArcValue> whyich is what we need internaly to apply our rules and do the SQL queries and then we do it  back to the struct and return.. sot he DEv ux is of usint their own CustomStruct_For_The_Entity and we do the internal conversion
 
   store/orders/find
-  async fn find(&self, params: HashMap<String, ArcValueType>) -> Result<Vec<ArcValueType>> {
+  async fn find(&self, params: HashMap<String, ArcValue>) -> Result<Vec<ArcValue>> {
     
     
     Ok(list)
   }
-  the step before this.. converts from the CustomStruct_For_The_Entity to HashMap<String, ArcValueType> and calls the action
-  the step after this.. converts from the HashMap<String, ArcValueType> to CustomStruct_For_The_Entity
+  the step before this.. converts from the CustomStruct_For_The_Entity to HashMap<String, ArcValue> and calls the action
+  the step after this.. converts from the HashMap<String, ArcValue> to CustomStruct_For_The_Entity

@@ -50,7 +50,7 @@ Services in Runar are defined using a declarative approach with macros:
 use anyhow::Result;
 use runar_macros::{action, service, subscribe};
 use runar_node::services::{RequestContext, EventContext};
-use runar_common::types::ArcValueType; // Assuming ArcValueType might be used
+use runar_common::types::ArcValue; // Assuming ArcValue might be used
 
 #[service(name = "example_service", path = "example")] // Added path as it's common
 struct ExampleService {
@@ -73,7 +73,7 @@ impl ExampleService {
     }
     
     #[subscribe(path = "event/type")] // path attribute is often used
-    async fn handle_event(&self, ctx: &EventContext, data: Option<ArcValueType>) -> Result<()> {
+    async fn handle_event(&self, ctx: &EventContext, data: Option<ArcValue>) -> Result<()> {
         // Event handler implementation
         // Example: Log event data
         if let Some(event_data) = data {

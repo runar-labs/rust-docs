@@ -32,7 +32,7 @@ Let's create a simple math service. Replace the contents of `src/main.rs` with t
 ```rust
 use anyhow::Result;
 use futures::lock::Mutex;
-use runar_common::types::ArcValueType;
+use runar_common::types::ArcValue;
 use runar_macros::{action, service};
 use runar_node::services::RequestContext;
 use std::collections::HashMap;
@@ -44,7 +44,7 @@ use std::sync::Arc;
     path = "math"
 )]
 struct MathService {
-    store: Arc<Mutex<HashMap<String, ArcValueType>>>,
+    store: Arc<Mutex<HashMap<String, ArcValue>>>,
 }
 
 impl MathService {

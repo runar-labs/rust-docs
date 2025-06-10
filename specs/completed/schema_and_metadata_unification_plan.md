@@ -10,8 +10,8 @@ This document outlines a plan to refine how data schemas are represented within 
 
 The primary goals are:
 
-- Define clear, type-safe Rust structs for representing data schemas (e.g., for action parameters, results, and event data) instead of relying on `Option<HashMap<String, String>>` or deeply nested `ArcValueType` for the schema structure itself.
-- Ensure that `ArcValueType` is primarily used as a wrapper for payloads during transport between services, for dynamic parts of a payload, or for representing example/default values _when converted from their string representation by a consumer of the schema_, not as a core part of static metadata definitions like schemas.
+- Define clear, type-safe Rust structs for representing data schemas (e.g., for action parameters, results, and event data) instead of relying on `Option<HashMap<String, String>>` or deeply nested `ArcValue` for the schema structure itself.
+- Ensure that `ArcValue` is primarily used as a wrapper for payloads during transport between services, for dynamic parts of a payload, or for representing example/default values _when converted from their string representation by a consumer of the schema_, not as a core part of static metadata definitions like schemas.
 - Unify the `ActionCapability` and `ActionMetadata` structs into a single, canonical `ActionMetadata` struct.
 - Unify the `EventCapability` and `EventMetadata` structs into a single, canonical `EventMetadata` struct.
 - Simplify the overall system by reducing redundant types and improving type safety for schema definitions.
@@ -24,9 +24,9 @@ Currently, schema fields like `params_schema`, `result_schema`, and `data_schema
 
 - **Limited Expressiveness:** A `HashMap<String, String>` can only represent flat key-value pairs where values are strings. Real-world schemas need to describe various data types (integers, booleans, nested objects, arrays), constraints, and other metadata (e.g., descriptions for fields).
 - **Type Safety:** There's no compile-time checking for the validity or structure of the "schema" beyond it being a map of strings.
-- **Conversion Overhead & Inconsistency:** As seen in `registry_info.rs`, these `HashMap<String, String>` schemas often need to be converted into `ArcValueType` to be part of a larger response structure. This implies that the intended final form is more complex than a simple string map. There were also observed inconsistencies where some parts of the code expected `ArcValueType` for these schemas, while definitions were `HashMap<String, String>`.
+- **Conversion Overhead & Inconsistency:** As seen in `registry_info.rs`, these `HashMap<String, String>` schemas often need to be converted into `ArcValue` to be part of a larger response structure. This implies that the intended final form is more complex than a simple string map. There were also observed inconsistencies where some parts of the code expected `ArcValue` for these schemas, while definitions were `HashMap<String, String>`.
 
-Using `ArcValueType` directly for the entire schema definition within metadata structs was considered but goes against the principle of using `ArcValueType` primarily as a transport wrapper for payloads rather than a way to define static structure.
+Using `ArcValue` directly for the entire schema definition within metadata structs was considered but goes against the principle of using `ArcValue` primarily as a transport wrapper for payloads rather than a way to define static structure.
 
 ### 2.2. Proposed Schema Structs
 
@@ -38,9 +38,9 @@ To address these issues, we propose a set of dedicated Rust structs to model sch
 // For FieldSchema, ActionMetadata, EventMetadata, ServiceMetadata.
 
 use std::collections::HashMap;
-// ArcValueType might be used by consumers of FieldSchema when parsing string-represented
+// ArcValue might be used by consumers of FieldSchema when parsing string-represented
 // default_value, enum_values, or example for complex types, but not stored directly in FieldSchema.
-// use runar_common::types::ArcValueType;
+// use runar_common::types::ArcValue;
 use serde::{Deserialize, Serialize}; // For binary serialization of metadata structs
 
 /// Defines the type of a schema field. #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -159,7 +159,7 @@ The top-level schema for action parameters, results, or event data will typicall
 - **Clarity:** Makes the intent and structure of schemas explicit.
 - **Standardization:** Aligns with common practices in API and data modeling.
 - **Serialization:** Derives `Serialize` and `Deserialize` for easy binary conversion (e.g., via `bincode`) as part of containing metadata structs. If a specific JSON representation of `FieldSchema` itself is needed later for other purposes (e.g., documentation tools), custom serialization logic or a separate DTO could be introduced.
-- **`ArcValueType` for Transport/Dynamic Data:** Actual payloads are transported as `ArcValueType`. `FieldSchema` defines their structure. For default values, enum values, and examples within `FieldSchema`, these are stored as `String`. Consumers of the schema are responsible for parsing these strings (e.g., as JSON if the `data_type` indicates a complex type) into appropriate Rust types or `ArcValueType` instances as needed.
+- **`ArcValue` for Transport/Dynamic Data:** Actual payloads are transported as `ArcValue`. `FieldSchema` defines their structure. For default values, enum values, and examples within `FieldSchema`, these are stored as `String`. Consumers of the schema are responsible for parsing these strings (e.g., as JSON if the `data_type` indicates a complex type) into appropriate Rust types or `ArcValue` instances as needed.
 
 ## 3. Unification of Metadata and Capability Structs
 
@@ -248,9 +248,9 @@ All contained structs (`ActionMetadata`, `EventMetadata`, `FieldSchema`, `Schema
     - The `create_from_capabilities` function (which might be renamed, e.g., `create_from_metadata`) will now receive `ServiceMetadata`.
     - Logic for handling schemas will work directly with `FieldSchema`.
 6.  **Refactor `rust-node/src/services/registry_info.rs`:**
-    - When constructing responses, if schemas are `Option<FieldSchema>`, they will need to be appropriately converted to `ArcValueType` if the response format demands it (e.g., by serializing the `FieldSchema` to a JSON string then into an `ArcValueType::String`, or by recursively converting the `FieldSchema` structure into a nested `ArcValueType::Map`). A helper function `impl FieldSchema { fn to_arc_value_type(&self) -> ArcValueType { /* ... */ } }` might be beneficial. This conversion is for representing the schema _as data_ in the response, not for transporting the schema definition itself during discovery (which uses the binary serialized `ServiceMetadata`).
+    - When constructing responses, if schemas are `Option<FieldSchema>`, they will need to be appropriately converted to `ArcValue` if the response format demands it (e.g., by serializing the `FieldSchema` to a JSON string then into an `ArcValue::String`, or by recursively converting the `FieldSchema` structure into a nested `ArcValue::Map`). A helper function `impl FieldSchema { fn to_arc_value_type(&self) -> ArcValue { /* ... */ } }` might be beneficial. This conversion is for representing the schema _as data_ in the response, not for transporting the schema definition itself during discovery (which uses the binary serialized `ServiceMetadata`).
 7.  **Update Other Consumers:** Any other code that uses or creates these metadata or capability structs will need to be updated. This includes tests.
-8.  **Update `vmap!` Usage:** If `vmap!` was used to create schema _definitions_, this will change. Services will now construct `FieldSchema` instances directly. `vmap!` remains for creating `ArcValueType` _payloads_.
+8.  **Update `vmap!` Usage:** If `vmap!` was used to create schema _definitions_, this will change. Services will now construct `FieldSchema` instances directly. `vmap!` remains for creating `ArcValue` _payloads_.
 
 **Serialization of Schemas for Transport:**
 With `FieldSchema`, `ActionMetadata`, `EventMetadata`, and `ServiceMetadata` all deriving `serde::Serialize` and `serde::Deserialize`, the `ServiceMetadata` object can be efficiently serialized to binary (e.g., using `bincode`) for network transport during service discovery. This uses `serde` for the mechanism but doesn't impose a JSON structure on the wire for `FieldSchema` itself unless explicitly chosen for that transport layer.

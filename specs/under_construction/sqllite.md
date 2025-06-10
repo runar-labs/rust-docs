@@ -392,9 +392,9 @@ let deleted = node.request("users_store", Some(delete_op)).await?;
 let deleted = node.request("users_store/delete", Some(delete_params)).await?;
 
 // Find users with advanced query
-let find_query = ArcValueType::new_map(HashMap::from([
-    ("name".to_string(), ArcValueType::new_map(HashMap::from([
-        ("$like".to_string(), ArcValueType::new_primitive("john%")),
+let find_query = ArcValue::new_map(HashMap::from([
+    ("name".to_string(), ArcValue::new_map(HashMap::from([
+        ("$like".to_string(), ArcValue::new_primitive("john%")),
     ]))),
 ]));
 
