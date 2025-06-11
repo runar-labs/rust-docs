@@ -34,10 +34,20 @@ The key management system provides:
 ### User Master Key 
 
 - **Type**: Ed25519 key pair
-- **Purpose**: Root key for network administration
-- **Usage**: Derives network-specific keys
+- **Purpose**: Root key for the user
+- **Usage**: Derives other keys
 - **Storage**: Users mobile app safe storage - or offiline storage (LEdger like device)
 - **Backup**: Required, using secure backup procedures
+
+
+### User PROFILE KeyS (CAN BE MULTIPLE) 
+
+- **Type**: Ed25519 key pair
+- **Purpose**: Identifies the user Profile - ENCRYPT AN DECRUYPTO USER DATA ASSOCIATED OT THIS PROFILE
+- **Usage**: Derives SYSTEM keys
+- **Storage**: Users mobile app safe storage - or offiline storage (LEdger like device)
+- **Backup**: Required, using secure backup procedures
+- **Derivation**: IS DERIVED FROM THE USER MASTER KEY
 
 ### Network Key
 
@@ -64,7 +74,7 @@ The key management system provides:
 - **Management**: One per network
 - **Storage**: Stored in the node storage. encrypted with the peer Key
 
-### Nodeq Key
+### Node Key
 
 - **Type**: Ed25519 key pair derived from master key
 - **Purpose**: Identifies individual peers (nodes participanting in the network)
@@ -79,10 +89,35 @@ The key management system provides:
 
 ### Process
 
-1. Administrator starts with master key
-2. Derives network keys using standardized paths
+1. User starts with master key
+2. WHEN USER CREATES A NETWORK -> Derives network keys using standardized paths
 3. Each derived key represents a separate network
 4. Public keys become NetworkIds
+5. WHEN USER CREATES A NODE -> Derives node keys using standardized paths
+6. Each derived key represents a separate node
+7. Public keys become NodeIds
+
+
+### ENCRYPTION
+NODE KEYS WILL BE USED FOR ENCRYPTION,  ALL FILES STORED IN THE NODE WILL BE ENCRYPTED WITH THE NODE KEY.
+
+USER PROFILE KEYS WILL BE USED FOR ENCRYPTION,  
+ALL USER DATA IS ENMCRYPTE USING ITS PUBLIC KEY AND CAN ONLTY BE RETRIEE WITH THE PRIVATE KEY.
+
+FOR SHARED DATA WITH THE NETWORK OR WITH THE NODE .. WE NEED A SHARE KEY WHICH IS BASED ON USER PROFILE KEY AND THE NODE KEY OR NETWORK KEY.
+
+IF THE USER NEEDS TO SHARE DATAT THAT THE NODE NEEDS TO READ OR WRITE, THE CODE RUNNING ON BEHALF OF THE NODE WILL USE THE NODE SHARED KEY TO ENCRYPT THE DATA.
+
+IF THE USER NEEDS TO SHATE WITH THE NETWORK, THE CODE RUNNING ON BEHALF OF THE NETWORK WILL USE THE NETWORK SHARED KEY TO ENCRYPT/DECRYPT THE DATA.
+
+SHARED KEYS HAVE EXPIRATION AND NEED TO BE RENEWED PERIODICALLY BY THE USER OR RULE.
+
+
+THE NODE WILL STORES ITS NODE KEY, THE NETWORK KEYS THAT THE NODE IS ALLOWED TO RUN.
+
+AND ALL THE SHARED KEUS THAT WERE SHARED WITH THE NODE OR THE NETWORK. SO CODE RUNINNG ON THE NODE CAN USE THESE KEYS WHEN APPROPRIATE.
+
+USER MASTER KEY AND PROFILE KEYS NEVER LEAVE THE MOBILE APP OR SECURE WEB GATEWAY.
 
 ### Path Format
 
