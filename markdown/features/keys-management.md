@@ -1,357 +1,106 @@
-# Keys Management Specification
+# Runar Key Management Specification
 
-This specification defines the key management system for the P2P network, providing secure identities, network participation, and access control. It uses hierarchical deterministic (HD) key derivation for network keys and cryptographic tokens for authentication.
+This specification defines how Runar generates, stores, and uses cryptographic keys to provide identity, authentication, encryption, and access control across multiple user-defined peer-to-peer networks.
 
+---
 ## Table of Contents
-
 1. [Overview](#overview)
-2. [Key Types](#key-types)
-   - [Master Key](#master-key)
-   - [Network Key](#network-key)
-   - [Peer Key](#peer-key)
-3. [HD Key Derivation](#hd-key-derivation)
-   - [Process](#process)
-   - [Path Format](#path-format)
-   - [Implementation](#implementation)
-4. [Access Tokens](#access-tokens)
-   - [Structure](#structure)
-   - [Issuance](#issuance)
-   - [Verification](#verification)
-   - [Lifecycle](#lifecycle)
-5. [Security Considerations](#security-considerations)
-6. [Implementation Examples](#implementation-examples)
+2. [Key Classes](#key-classes)
+3. [Hierarchical Derivation](#hierarchical-derivation)
+4. [Encryption Modes](#encryption-modes)
+5. [Epoch Rotation & Forward Secrecy](#epoch-rotation--forward-secrecy)
+6. [Access Tokens](#access-tokens)
+7. [QUIC Transport Security](#quic-transport-security)
+8. [Security Considerations](#security-considerations)
+9. [Glossary](#glossary)
 
+---
 ## Overview
+Runar uses a single 32-byte Ed25519 **User Master Key** as the root of trust.  All other keys are deterministically derived and divided into *signing* (Ed25519) and *encryption* (X25519) roles:
+* Ed25519 → signatures, certificates, token signing.
+* X25519 → Diffie-Hellman (sealed box, shared keys).
 
-The key management system provides:
-- Secure identity management for peers and networks
-- Hierarchical key derivation for network administration
-- Cryptographic access control through tokens
-- Integration with P2P transport layer security
+---
+## Key Classes
+| Class | Algo | Derivation | Purpose |
+|-------|------|------------|---------|
+| **User Master Key** | Ed25519 | random | Root; backups, seed for HD paths |
+| **User Profile Key** | Ed25519 | `m/44'/0'/profile'` + index | Signs user content; public key = *ProfileId*; converted to X25519 for sealed-box decryption |
+| **Network Key** | Ed25519 | `m/44'/0'/net'` + index | Owns a network, signs access tokens; may be used as per-network QUIC certificate |
+| **Node Key** | Ed25519 | `m/44'/0'/node'` + index | Identifies a peer instance; encrypts node-local data |
+| **X25519 Conversion** | X25519 | clamp(Ed25519 scalar) | Used whenever DH is needed (sealed box, shared keys) |
 
-## Key Types
+> Only the **User Master Key** and **User Profile Keys** leave the node (mobile backup, secure gateway).  All other keys stay on the node in encrypted storage.
 
-### User Master Key 
+---
+## Hierarchical Derivation
+Derivation follows BIP-44 style hardened paths:
+```
+m / 44' / 0' / <class>' / <index>'
+```
+* `class = 0` profile, `1` network, `2` node.
+* All indices hardened so child keys cannot compromise parents.
 
-- **Type**: Ed25519 key pair
-- **Purpose**: Root key for the user
-- **Usage**: Derives other keys
-- **Storage**: Users mobile app safe storage - or offiline storage (LEdger like device)
-- **Backup**: Required, using secure backup procedures
+---
+## Encryption Modes
+| Data Class | Needs to read | Mode |
+|------------|--------------|------|
+| **User-private** (profile data) | User only | **Sealed Box**: ephemeral X25519 → user_pub, AEAD cipher ⇒ `(epub||nonce||cipher)` |
+| **User → System shared** (e.g. e-mail for notifications) | System **until TTL** | X25519 static–static DH `(user_priv,node_pub)` + **per-record TTL** in header → symmetric key → AEAD |
+| **System internal** (telemetry, gossip) | All nodes in network | X25519 static–static DH `(user_priv,node_pub)` + **epoch tag** → AEAD |
+| **Node-local** | Same node | Symmetric key derived once from Node Key secret |
 
+AEAD algorithm = ChaCha20-Poly1305 (mobile) or AES-GCM (desktop).  AAD always includes `NetworkId`, `ProfileId`, and a version byte.
 
-### User PROFILE KeyS (CAN BE MULTIPLE) 
-
-- **Type**: Ed25519 key pair
-- **Purpose**: Identifies the user Profile - ENCRYPT AN DECRUYPTO USER DATA ASSOCIATED OT THIS PROFILE
-- **Usage**: Derives SYSTEM keys
-- **Storage**: Users mobile app safe storage - or offiline storage (LEdger like device)
-- **Backup**: Required, using secure backup procedures
-- **Derivation**: IS DERIVED FROM THE USER MASTER KEY
-
-### Network Key
-
-- **Type**: Ed25519 key pair derived from master key
-- **Purpose**: Identifies and secures individual networks
-- **Components**:
-  - **Public Key**: Serves as the NetworkId
-  - **Private Key**: Signs access tokens
-- **Derivation**: Uses HD derivation path
-- **Management**: One per logical network
-- **Storage**: Users mobile app safe storage - or offiline storage (LEdger like device)
-- **Backup**: Required, using secure backup procedures
-- **Notes**:  This is also the key used to create the QUIC certificates, so QUIC encryption derives from the Network Key
-
-
-### QUIC Keys
-
-- **Type**: Ed25519 key pair derived from network key
-- **Purpose**: Secure QUIC connections
-- **Components**:
-  - **Public Key**: Used for authentication
-  - **Private Key**: Used for encryption
-- **Derivation**: Uses HD derivation path
-- **Management**: One per network
-- **Storage**: Stored in the node storage. encrypted with the peer Key
-
-### Node Key
-
-- **Type**: Ed25519 key pair derived from master key
-- **Purpose**: Identifies individual peers (nodes participanting in the network)
-- **Components**:
-  - **Public Key**: Used for authentication
-  - **PeerId**: SHA-256 hash of public key
-- **Generation**: Unique per peer instance
-- **Storage**: Local to peer, not shared
-- **Encryption**: USer to encrypt the node data, all node data that is store is encrypted with this key.
-
-## HD Key Derivation
-
-### Process
-
-1. User starts with master key
-2. WHEN USER CREATES A NETWORK -> Derives network keys using standardized paths
-3. Each derived key represents a separate network
-4. Public keys become NetworkIds
-5. WHEN USER CREATES A NODE -> Derives node keys using standardized paths
-6. Each derived key represents a separate node
-7. Public keys become NodeIds
-
-
-### ENCRYPTION
-NODE KEYS WILL BE USED FOR ENCRYPTION,  ALL FILES STORED IN THE NODE WILL BE ENCRYPTED WITH THE NODE KEY.
-
-USER PROFILE KEYS WILL BE USED FOR ENCRYPTION,  
-ALL USER DATA IS ENMCRYPTE USING ITS PUBLIC KEY AND CAN ONLTY BE RETRIEE WITH THE PRIVATE KEY.
-
-FOR SHARED DATA WITH THE NETWORK OR WITH THE NODE .. WE NEED A SHARE KEY WHICH IS BASED ON USER PROFILE KEY AND THE NODE KEY OR NETWORK KEY.
-
-IF THE USER NEEDS TO SHARE DATAT THAT THE NODE NEEDS TO READ OR WRITE, THE CODE RUNNING ON BEHALF OF THE NODE WILL USE THE NODE SHARED KEY TO ENCRYPT THE DATA.
-
-IF THE USER NEEDS TO SHATE WITH THE NETWORK, THE CODE RUNNING ON BEHALF OF THE NETWORK WILL USE THE NETWORK SHARED KEY TO ENCRYPT/DECRYPT THE DATA.
-
-SHARED KEYS HAVE EXPIRATION AND NEED TO BE RENEWED PERIODICALLY BY THE USER OR RULE.
-
-
-THE NODE WILL STORES ITS NODE KEY, THE NETWORK KEYS THAT THE NODE IS ALLOWED TO RUN.
-
-AND ALL THE SHARED KEUS THAT WERE SHARED WITH THE NODE OR THE NETWORK. SO CODE RUNINNG ON THE NODE CAN USE THESE KEYS WHEN APPROPRIATE.
-
-USER MASTER KEY AND PROFILE KEYS NEVER LEAVE THE MOBILE APP OR SECURE WEB GATEWAY.
-
-### Path Format
+---
+## Epoch Rotation & Forward Secrecy
+`GLOBAL_EPOCH` is a monotonically increasing `u64` **per network**.  It protects **system-internal traffic only** (row “System internal”).  It is signed by the Network Key and gossiped periodically.
 
 ```
-m/44'/0'/n'
+ss        = X25519(user_priv, node_pub)
+info_tag  = format!("epoch:{}", GLOBAL_EPOCH)
+k_epoch   = HKDF-SHA256(ss, info = info_tag)
 ```
-Where:
-- `m`: Master key
-- `44'`: Purpose (hardened, BIP-44)
-- `0'`: Coin type (hardened, generic)
-- `n'`: Network index (hardened, 0, 1, 2, etc.)
+* Nodes cache only the last *N* epochs for system traffic; older keys are purged.
+* **User-shared keys ignore epoch** and are deleted strictly after their individual TTL.
+* New nodes fetch the current epoch during discovery and verify the signature to prevent replay.
 
-### Implementation
-
-```rust
-use ed25519_hd_key::DerivationPath;
-
-// Example key derivation
-fn derive_network_key(master_key: &[u8], network_index: u32) -> Result<Ed25519KeyPair> {
-    let path = format!("m/44'/0'/{}'", network_index);
-    let derivation_path = DerivationPath::from_str(&path)?;
-    
-    let derived_key = ed25519_hd_key::derive_key_from_path(
-        master_key,
-        &derivation_path
-    )?;
-    
-    Ok(derived_key)
-}
-```
-
+---
 ## Access Tokens
+* Signed by a **Network Key**.
+* Payload: `peer_id, network_id, expiry, capabilities[]`.
+* Used during QUIC handshake (or pub/sub subscribe) for authorisation.
 
-### Structure
+---
+## QUIC Transport Security
+| Model | Certificate Key | Conns per node-pair | Pros | Cons |
+|-------|-----------------|---------------------|------|------|
+| **A Per-network** | Network Key | O(networks²) | Perfect isolation, simple auth | More TLS handshakes & sockets |
+| **B Per-node** | Node Key | 1 | Fewer connections | Needs in-stream proof of NetworkKey; cross-network isolation relies on higher layers |
 
-```rust
-pub struct AccessToken {
-    /// SHA-256 hash of peer's public key
-    pub peer_id: PeerId,
-    
-    /// Derived network public key
-    pub network_id: NetworkId,
-    
-    /// Optional Unix timestamp for expiration
-    pub expiration: Option<u64>,
-    
-    /// Signature of the above fields with network's private key
-    pub signature: Vec<u8>,
-    
-    /// Optional capabilities or permissions
-    pub capabilities: Option<Vec<Capability>>,
-}
+**POC** adopts Model A.  Model B can be added later using TLS ALPN + stream signatures.
 
-pub enum Capability {
-    Read,
-    Write,
-    Admin,
-    Custom(String),
-}
-```
-
-### Issuance
-
-1. Administrator uses network private key
-2. Creates token with peer and network info
-3. Sets expiration and capabilities
-4. Signs token data
-5. Distributes to peer securely
-
-```rust
-impl AccessToken {
-    pub fn new(
-        peer_id: PeerId,
-        network_id: NetworkId,
-        expiration: Option<u64>,
-        capabilities: Option<Vec<Capability>>,
-        network_key: &Ed25519PrivateKey
-    ) -> Result<Self> {
-        let mut token = Self {
-            peer_id,
-            network_id,
-            expiration,
-            capabilities,
-            signature: Vec::new(),
-        };
-        
-        // Sign token data
-        token.signature = network_key.sign(&token.data_to_sign())?;
-        
-        Ok(token)
-    }
-}
-```
-
-### Verification
-
-1. Peer receives token
-2. Verifies signature using NetworkId
-3. Checks expiration time
-4. Validates capabilities
-5. Stores for connection handshakes
-
-```rust
-impl AccessToken {
-    pub fn verify(&self, network_id: &NetworkId) -> Result<bool> {
-        // Check expiration
-        if let Some(exp) = self.expiration {
-            if exp < current_unix_timestamp() {
-                return Ok(false);
-            }
-        }
-        
-        // Verify signature
-        network_id.verify(
-            &self.data_to_sign(),
-            &self.signature
-        )
-    }
-}
-```
-
-### Lifecycle
-
-1. **Creation**:
-   - Generated by network administrator
-   - Signed with network private key
-   - Distributed to peer securely
-
-2. **Usage**:
-   - Presented during connection handshake
-   - Verified by receiving peers
-   - Cached for session duration
-
-3. **Renewal**:
-   - Before expiration if temporary
-   - When capabilities change
-   - On network key rotation
-
-4. **Revocation**:
-   - Through expiration
-   - Via revocation list in DHT
-   - By network administrator
-
+---
 ## Security Considerations
+* Key separation: signing vs encryption keys.
+* Forward secrecy: sealed box + epoch rotation.
+* Compromise impact:
+  * lost User Master Key ⇒ full account takeover.
+  * lost Node Key ⇒ node-local data leak only.
+* Backups: Master & Profile keys must be exported securely (Ledger, seed phrase).  All other keys are re-derivable.
+* Revocation:
+  * **Network keys** – rotate Network Key → issue new tokens, new QUIC cert.
+  * **System shared keys** – bump `GLOBAL_EPOCH`; nodes keep last _RETENTION_EPOCHS_ for system traffic only.
+  * **User shared keys** – stored with explicit TTL; node deletes key + ciphertext immediately after expiry.
 
-1. **Key Storage**:
-   - Master key must be stored securely offline
-   - Network private keys require secure storage
-   - Peer keys stored with appropriate OS security
+---
+## Glossary
+* **AAD** – Additional Authenticated Data.
+* **AEAD** – Authenticated Encryption with Associated Data.
+* **Epoch** – uint64 counter providing key-rotation window.
+* **HD Path** – BIP-44 hardened derivation path.
+* **Sealed Box** – Ephemeral sender → static receiver encryption pattern (NaCl).
+* **X25519 Clamp** – Standard private-key conversion from Ed25519 scalar.
 
-2. **Token Distribution**:
-   - Use secure channels for token distribution
-   - Validate token before accepting
-   - Protect against replay attacks
-
-3. **Revocation**:
-   - Short-lived tokens preferred
-   - Maintain revocation lists
-   - Quick revocation mechanism
-
-4. **Network Segmentation**:
-   - Separate networks with different keys
-   - Limit token capabilities
-   - Isolate network access
-
-## Implementation Examples
-
-### Network Key Generation
-
-```rust
-use ed25519_hd_key::{DerivationPath, KEY_SIZE};
-use rand::RngCore;
-
-fn generate_master_key() -> Result<[u8; KEY_SIZE]> {
-    let mut key = [0u8; KEY_SIZE];
-    rand::thread_rng().fill_bytes(&mut key);
-    Ok(key)
-}
-
-fn create_network(master_key: &[u8], network_index: u32) -> Result<NetworkKey> {
-    let derived_key = derive_network_key(master_key, network_index)?;
-    NetworkKey::from_ed25519_keypair(derived_key)
-}
-```
-
-### Token Management
-
-```rust
-impl NetworkAdmin {
-    pub async fn issue_token(
-        &self,
-        peer_id: PeerId,
-        capabilities: Vec<Capability>,
-        duration: Duration
-    ) -> Result<AccessToken> {
-        let expiration = Some(
-            SystemTime::now()
-                .checked_add(duration)
-                .unwrap()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        );
-        
-        AccessToken::new(
-            peer_id,
-            self.network_id.clone(),
-            expiration,
-            Some(capabilities),
-            &self.network_key
-        )
-    }
-}
-```
-
-This key management system provides a robust foundation for secure P2P network operations while maintaining flexibility for different network configurations and security requirements.
-
-
-
-Implementation Consideration for our architecture:
-1) some security flow will be implemented using the pub/sub api - anything that a service would need to integrat with the security system
-
-2) some other security flows will need their own mechanism ( a socket, a http server etc) to talk to other components for reasons like: to make it more secure or that the pub/sub api is not available at that stage of the process.
-
-so if the pub/sub api is available at that popint of the process and if there is not security concer, the data flow should gfo thought the pub/sub api meaning,
-instead of   
-component A -> http request -> component B
-shouod be
-component A -> reqeust or publish event -> componetn B using the runar framework.
-
-when things needs to go external and nned to use http or websockets consider using the gateway service that allows to expose actions/events as REST API or the same pub/sub API via websockets ..  consider usign teh gateay before implemeting a custom web server.
-
-
-
-## Examples
-
-This section will be expanded with practical examples.
+---
+*Last updated: 2025-06-12*
