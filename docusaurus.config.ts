@@ -3,8 +3,8 @@ import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
-  title: 'Runar Framework',
-  tagline: 'Build end-to-end encrypted, resilient, microservices or peer-to-peer distributed applications',
+  title: 'Runar - Privacy for all',
+  tagline: 'It is time we go beyond just chat apps. Build end-to-end encrypted, resilient, microservices or peer-to-peer distributed applications',
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here

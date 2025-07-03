@@ -4,13 +4,11 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'rust-docs/website-docusaurus/**'
-      - 'rust-docs/markdown/**'
+      - 'rust-docs/**'
   pull_request:
     branches: [ main ]
     paths:
-      - 'rust-docs/website-docusaurus/**'
-      - 'rust-docs/markdown/**'
+      - 'rust-docs/**'
 
 jobs:
   build-and-deploy:
@@ -29,7 +27,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          cd rust-docs/website-docusaurus
+          cd rust-docs
           bun install
 
       - name: Copy Latest Content
@@ -44,13 +42,13 @@ jobs:
 
       - name: Build Documentation
         run: |
-          cd rust-docs/website-docusaurus
+          cd rust-docs
           bun run build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./rust-docs/website-docusaurus/build
+          publish_dir: ./rust-docs/build
           publish_branch: gh-pages
           commit_message: ${{ github.event.head_commit.message }} 
