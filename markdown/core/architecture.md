@@ -40,7 +40,7 @@ This document describes the high-level architecture of the Runar node system, in
 
 ## Introduction
 
-The Runar node system follows a modular, service-oriented architecture designed for flexibility, extensibility, and robust operation in distributed environments. This document provides an overview of the key components and principles governing the system design.
+This document provides an overview of the key components and principles governing the system design.
 
 ## Core Components
 

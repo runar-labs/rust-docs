@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Runar is a powerful distributed system framework built in Rust. It provides a declarative, Actix-inspired approach to defining services, actions, and event subscriptions for building resilient peer-to-peer applications.
+Runar is a powerful distributed system framework built in Rust. It provides a declarative, approach to defining services, actions, and event subscriptions for building resilient peer-to-peer or distributed microservices applications.
 
 ## Key Features
 

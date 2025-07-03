@@ -1,408 +1,192 @@
-# Documentation Updates for Macros System
+# Documentation Updates for Runar Framework
 
-This document summarizes the documentation updates made to reflect the improvements to Runar's macros system, particularly the successful implementation of the runtime registration approach.
+This document summarizes the comprehensive documentation updates made to reflect the current state of the Runar framework, including completed features and architectural improvements.
 
-## Updates Made
+## Major Updates Made
 
-### Main Documentation Files
+### 1. **Core Feature Matrix Alignment**
 
-1. **`/docs/development/macros.md`**
-   - Added information about the two implementation approaches (distributed slices and runtime registration)
-   - Added a new "Testing with Macros" section with practical examples
-   - Included detailed explanations about how macros work in testing environments
+Updated the main README.md to reflect the current status of all features:
 
-2. **`/docs/index.md`**
-   - Updated the link to macros documentation to indicate testing support
+- **Key Management & Encryption**: Updated from 🟡 to ✅ with complete PKI system
+- **Enhanced Serialization**: Added as ✅ with selective field encryption
+- **Mobile Embeddings**: Split into iOS and Android separate items
+- **Node CLI**: Added as planned feature
+- **Feature Descriptions**: Updated to reflect actual implementation capabilities
 
-3. **`/docs/features/caching.md`**
-   - Added a note about macros supporting both compile-time and runtime registration approaches
-   - Explained compatibility with testing environments
+### 2. **New Encryption Documentation**
 
-4. **`/docs/features/metrics.md`**
-   - Added an implementation note about the dual registration approaches
-   - Mentioned compatibility with testing environments
+#### **Encryption Schema** (`features/encryption-schema.md`)
+- Comprehensive documentation of the complete encryption system
+- PKI infrastructure with X.509 certificates
+- Envelope encryption for multi-recipient access control
+- Selective field encryption with label-based key resolution
+- End-to-end encryption flow with detailed examples
+- Security considerations and best practices
+- Complete API reference for all encryption components
 
-### Support Documentation
+#### **Enhanced Serialization** (`features/enhanced-serialization.md`)
+- Selective field encryption with label-based key resolution
+- Multi-recipient access control patterns
+- Integration with envelope encryption system
+- Type-safe serialization with encryption
+- Comprehensive usage examples and best practices
+- API reference for serializer registry and encryption functions
 
-1. **`/runar_macros/README.md`**
-   - Substantially updated with information about the implementation approaches
-   - Added a "Testing with Macros" section with code examples
-   - Updated the development status to reflect successful testing
-   - Added links to the proper documentation
+### 3. **Updated Key Management Documentation**
 
-2. **`/runar_macros/CHANGELOG.md`**
-   - Added entries for the runtime registration system implementation
-   - Added entries for fixed methods in the service registry
-   - Added entries for other fixes and improvements
+#### **Keys Management** (`features/keys-management.md`)
+- Complete rewrite to reflect current implementation
+- PKI infrastructure with certificate hierarchy
+- Mobile key management with profile keys
+- Node key management with local storage encryption
+- Envelope encryption for cross-device data sharing
+- Certificate workflow with detailed diagrams
+- Security considerations and API reference
 
-3. **`/runar_macros/DEBUGGING.md`**
-   - Added section on debugging registration approaches
-   - Added tips for debugging in test environments
-   - Added more comprehensive troubleshooting steps
+### 4. **Updated Quick Start Guide**
 
-4. **`/runar_macros/IMPLEMENTATION_PLAN.md`**
-   - Updated to mark completed items
-   - Added key achievements section
-   - Updated status of implementation phases
+#### **Quick Start** (`getting-started/quickstart.md`)
+- Comprehensive example demonstrating all core features
+- Service definition with macros (`#[service]`, `#[action]`, `#[publish]`, `#[subscribe]`)
+- Event-driven architecture with automatic event handling
+- Request/response patterns with type-safe parameters
+- Error handling and logging integration
+- Step-by-step testing and validation
+- Clear next steps for advanced features
+
+### 5. **Updated Main Documentation Index**
+
+#### **Index** (`index.md`)
+- Added comprehensive feature status table
+- Quick reference section with code examples
+- Architecture deep dive with core systems overview
+- Security architecture documentation
+- Communication patterns explanation
+- Updated navigation to reflect new documentation structure
 
 ## Key Improvements Highlighted
 
-1. **Runtime Registration Alternative**
-   - The macros now work without requiring unstable Rust features
-   - Testing is fully supported without special configuration
+### 1. **Production-Ready Features**
+- **PKI System**: Complete X.509 certificate infrastructure
+- **Envelope Encryption**: Multi-recipient encryption for cross-device sharing
+- **Selective Field Encryption**: Field-level encryption with label-based access control
+- **Mobile Key Management**: Self-custodied keys with mobile wallet integration
+- **Enhanced Serialization**: Type-safe serialization with encryption
 
-2. **Comprehensive Testing Support**
-   - End-to-end tests now pass with macros
-   - Test examples are included in documentation
+### 2. **Developer Experience**
+- **Declarative Macros**: Elegant service definition with minimal boilerplate
+- **Event-Driven Architecture**: Loose coupling through publish/subscribe
+- **Type Safety**: Comprehensive type safety throughout the system
+- **Error Handling**: Proper error handling and logging
+- **Testing Support**: Full testing capabilities with runtime registration
 
-3. **Improved Error Handling**
-   - Better error messages and diagnostic information
-   - More robust handling of edge cases
+### 3. **Security Architecture**
+- **End-to-End Encryption**: Data encrypted from producer to consumer
+- **Key Separation**: Different keys for different purposes
+- **Access Control**: Granular access control through label-based encryption
+- **Forward Secrecy**: Ephemeral keys and key rotation
+- **Compromise Isolation**: Limited impact of key compromise
 
-4. **P2P Communication**
-   - Fixed issues with message handling between peers
-   - Improved subscription handling
+### 4. **Documentation Quality**
+- **Comprehensive Coverage**: All major features documented
+- **Code Examples**: Practical examples for all features
+- **Architecture Diagrams**: Visual representation of system components
+- **API Reference**: Complete API documentation
+- **Best Practices**: Security and performance guidelines
+
+## Technical Details
+
+### Encryption System Architecture
+
+The documentation now accurately reflects the three-layer encryption system:
+
+1. **PKI Layer**: X.509 certificates for identity and authentication
+2. **Envelope Layer**: Multi-recipient encryption for data sharing
+3. **Field Layer**: Selective field encryption for granular access control
+
+### Service Architecture
+
+Updated documentation reflects the current service architecture:
+
+- **Macro-Based Definition**: Elegant service definition with declarative macros
+- **Event-Driven Communication**: Publish/subscribe for loose coupling
+- **Request/Response Pattern**: Direct service-to-service communication
+- **Lifecycle Management**: Proper initialization and cleanup
+
+### Integration Examples
+
+Added comprehensive examples showing:
+
+- **Mobile-Node Integration**: Cross-device data sharing
+- **Key Management Integration**: Profile and network key usage
+- **Serialization Integration**: Selective field encryption usage
+- **Service Integration**: Multi-service applications
+
+## Documentation Structure
+
+### Core Documentation
+- **Architecture**: High-level system architecture
+- **Core Systems**: Individual system documentation
+- **Getting Started**: Tutorials and examples
+- **Features**: Feature-specific documentation
+
+### Feature Documentation
+- **Key Management**: Complete PKI and key management
+- **Encryption Schema**: End-to-end encryption system
+- **Enhanced Serialization**: Selective field encryption
+- **Macros System**: Declarative service definition
+- **Caching**: Performance optimization
+- **Metrics**: Monitoring and observability
+
+### Development Documentation
+- **Service Development**: How to build services
+- **Testing**: Testing strategies and best practices
+- **Mobile Support**: Mobile application development
+- **API Reference**: Complete API documentation
 
 ## Next Steps for Documentation
 
-1. Add more examples to the documentation
-2. Create inline documentation for macro implementations
-3. Develop more comprehensive tutorials for common use cases
-4. Add diagrams explaining how the macros system works internally 
-
-# Documentation Updates for Core Systems
-
-This document summarizes the documentation updates made to reflect the core systems in Runar, including the Context System, ValueMap (VMap), and Logging System.
-
-## Updates Made
-
-### New Core Documentation Files
-
-1. **`/docs/core/context.md`**
-   - Comprehensive documentation of the Context System
-   - Explanation of RequestContext and LifecycleContext
-   - Usage examples for creating and using contexts
-   - Mermaid diagram illustrating request context flow
-
-2. **`/docs/core/vmap.md`**
-   - Detailed explanation of the ValueMap (VMap) abstraction
-   - Before and after comparisons showing code simplification
-   - Advanced usage examples for complex types and nested parameters
-   - Mermaid diagram showing VMap data flow
-
-3. **`/docs/core/logging.md`**
-   - Documentation of the unified logging system
-   - Examples for both async and sync contexts
-   - Explanation of context-aware logging
-   - Mermaid diagram illustrating the logging flow
-
-4. **`/docs/core/request_handling.md`**
-   - Comprehensive documentation of best practices for service request handling
-   - Guidelines for implementing the `handle_request` method
-   - Best practices for minimizing conversions between JSON and VMap
-   - Examples of good and bad practices for data format handling
-   - Integration with context-aware logging
-   - New section on subscription handling anti-patterns and best practices
-   - Detailed explanation of why subscriptions should be set up during initialization only
-
-5. **`/docs/core/lifecycle.md`**
-   - Detailed description of the service lifecycle states and transitions
-   - Best practices for each lifecycle method (constructor, init, start, stop)
-   - Comprehensive guidance on subscription setup during initialization
-   - Common anti-patterns to avoid in service implementation
-   - Mermaid diagram illustrating the service state transitions
-   - Examples of proper event handler implementation
-
-6. **`/docs/core/README.md`**
-   - Overview of the core documentation
-   - Links to individual core system documents
-   - Explanation of how the core systems relate to each other
-
-### Updated Documentation Files
-
-1. **`/docs/index.md`**
-   - Added links to new core documentation files
-   - Updated the logging reference to point to the new core documentation
-
-### Supporting Assets
-
-1. **`/docs/assets/images/`**
-   - Created Mermaid diagram source files for:
-     - `request-context-flow.txt`
-     - `vmap-flow.txt`
-     - `logging-flow.txt`
-
-## Key Improvements Highlighted
-
-1. **Comprehensive Core Documentation**
-   - Detailed explanations of fundamental Runar abstractions
-   - Clear examples showing proper usage patterns
-   - Visual diagrams to aid understanding
-
-2. **Improved Navigation**
-   - Better organization of documentation
-   - Clear links between related documents
-   - README file to guide readers
-
-3. **Consistent Format**
-   - Uniform structure across all core documentation
-   - Consistent use of examples, diagrams, and best practices
-   - Standardized sections for easy reference
-
-4. **Documentation Integration**
-   - Enhanced cross-referencing between related documents
-   - New "Core Concepts Relationships" section in README
-   - Clear explanation of how components interact with each other
-   - ASCII diagram showing relationships between core components
-
-## Next Steps for Core Documentation
-
-1. Add more detailed implementation examples
-2. Create tutorials showing how the core systems work together
-3. Add API reference documentation for each core system
-4. Develop troubleshooting guides for common issues 
-
-# Documentation Updates for Request Handling
-
-This document summarizes the documentation updates made to reflect the best practices for request handling in Runar, including the transition from `process_request` to `handle_request` and guidelines for JSON/VMap usage.
-
-## Updates Made
-
-### New Core Documentation Files
-
-1. **`/docs/core/request_handling.md`**
-   - Comprehensive documentation of best practices for service request handling
-   - Guidelines for implementing the `handle_request` method
-   - Best practices for minimizing conversions between JSON and VMap
-   - Examples of good and bad practices for data format handling
-   - Integration with context-aware logging
-   - **New section on subscription handling anti-patterns and best practices**
-   - Detailed explanation of why subscriptions should be set up during initialization only
-
-### Updated Documentation Files
-
-1. **`/docs/index.md`**
-   - Added link to the new request handling best practices document
-   - Updated Core Concepts section to include request handling
-
-2. **`/docs/core/README.md`**
-   - Added information about the request handling documentation
-   - Updated Core Components section
-
-### Updated Test Files
-
-1. **`node/tests/p2p_services_test.rs`**
-   - Updated service implementations to follow best practices
-   - Removed unnecessary conversions between JSON and VMap
-   - Implemented proper `handle_request` methods that delegate to specialized methods
-   - Replaced println calls with context-aware logging
-   - Removed redundant `process_any_operation` method
-
-2. **`node/tests/sqlite_mixin_tests.rs`**
-   - Updated `QueryableStoreService` to follow best practices
-   - Added specialized methods for different operations
-   - Implemented proper `handle_request` method that delegates to specialized methods
-   - Replaced println calls with context-aware logging
-
-## Key Improvements Highlighted
-
-1. **Clean Service Implementation**
-   - Clear separation between request handling and business logic
-   - Simplified `handle_request` methods that focus on delegation
-   - Specialized methods for each operation
-
-2. **Efficient Data Handling**
-   - Guidelines for minimizing conversions between data formats
-   - Examples of working directly with JSON or VMap based on input format
-   - Improved performance by avoiding unnecessary serialization/deserialization
-
-3. **Context-Aware Logging**
-   - Integration with Runar's logging system
-   - Structured logging for better traceability
-   - Appropriate log levels for different operation stages
-
-4. **Service Lifecycle Management**
-   - Documented anti-patterns in subscription handling
-   - Clear guidance on when to set up subscriptions (during init)
-   - Performance and reliability improvements through proper lifecycle management
-
-## Best Practices Established
-
-1. **`handle_request` Method**
-   - Should be simple and focused on routing requests
-   - Should delegate to specialized methods
-   - Should not contain complex business logic
-   - Should provide appropriate logging
-
-2. **Data Format Handling**
-   - Minimize conversions between JSON and VMap
-   - Preserve original format where possible
-   - Choose appropriate tools based on input format
-
-3. **Subscription Management**
-   - Always set up subscriptions during the `init` lifecycle method
-   - Never check or set up subscriptions during request handling
-   - Avoid using locks to track subscription setup state
-
-4. **Backward Compatibility**
-   - Maintain backward compatibility with `process_request`
-   - Delegate from `process_request` to `handle_request` 
-
-## Documentation Improvements for Publication
-
-To prepare the documentation for publication, we've made the following key improvements:
-
-### 1. Enhanced Cross-Referencing
-
-- Added "Related Documentation" sections to all core documentation files
-- Ensured consistent linking between related concepts
-- Provided context for why related documents are relevant
-
-### 2. Clarified Relationships Between Components
-
-- Added a comprehensive "Core Concepts Relationships" section to the README
-- Created a visual ASCII diagram showing how components interact
-- Explained the dependencies and information flow between components
-
-### 3. Documentation Structure Standardization
-
-- Ensured consistent formatting across all documentation files
-- Standardized section headings for easier navigation
-- Added clear introduction and overview sections in each document
-
-### 4. Contributing Guidelines
-
-- Created comprehensive documentation contribution guidelines
-- Outlined standard section requirements
-- Provided guidance on cross-referencing, visual elements, and code examples
-
-### 5. Anti-Pattern Documentation
-
-- Documented common anti-patterns to help developers avoid pitfalls
-- Provided clear examples of what not to do
-- Contrasted anti-patterns with best practices to reinforce good habits
-
-These improvements have significantly enhanced the quality and usability of the Runar documentation, making it ready for publication and ensuring it will serve as a valuable resource for developers using the framework. 
-
-# Documentation Updates for Service Implementation Testing and Best Practices
-
-This document summarizes the documentation updates and code improvements made to enhance service implementations in Runar, including testing strategies and advanced best practices.
-
-## Updates Made
-
-### Enhanced Documentation
-
-1. **`/docs/core/request_handling.md`**
-   - **New testing section** with comprehensive guidance for testing services
-   - Added unit testing examples for individual operation handlers
-   - Added integration testing examples for complete request flow
-   - Added context propagation testing strategies
-   - Added error handling testing recommendations
-   - Enhanced explanation of method delegation patterns
-   - Restructured with a table of contents for better navigation
-   - **Removed backward compatibility with `process_request`**
-
-### Updated Service Implementations
-
-1. **`node/src/services/node_info.rs`**
-   - Refactored to follow best practices for request handling
-   - Added specialized methods for each operation
-   - Implemented proper context-aware logging
-   - Removed process_request method
-
-2. **`node/src/remote.rs`**
-   - Updated RemoteService implementation with enhanced logging
-   - Improved error handling with detailed error messages
-   - Removed process_request method
-   - Added contextual information to log entries
-
-3. **`node/src/services/sqlite.rs`**
-   - Restructured SqliteService to use operation delegation
-   - Added specialized methods for query, execute, and batch operations
-   - Enhanced logging with operation-specific details
-   - Improved error reporting with more specific error messages
-   - Removed process_request method
-
-4. **`node/src/services/abstract_service.rs`**
-   - Removed deprecated process_request method from AbstractService trait
-
-## Key Improvements Highlighted
-
-1. **Testable Service Design**
-   - Services now follow a pattern that makes them easier to test
-   - Specialized methods can be tested in isolation
-   - Clear separation of concerns for better unit testing
-
-2. **Enhanced Logging**
-   - Consistent context-aware logging across all services
-   - Appropriate log levels for different operation stages
-   - Additional contextual information in log entries
-   - Better error visibility and troubleshooting
-
-3. **Improved Error Handling**
-   - More specific error messages with context information
-   - Consistent error response formatting
-   - Proper propagation of errors through the service chain
-
-4. **Simplified API**
-   - Removed deprecated process_request method
-   - Consistent use of handle_request across the codebase
-   - Cleaner, more straightforward API
-   - Better alignment with modern Rust patterns
-
-## Best Practices Established
-
-1. **Testing Strategy**
-   - Unit tests for individual operation handlers
-   - Integration tests for complete request flow
-   - Context propagation testing
-   - Error handling testing
-
-2. **Service Implementation Pattern**
-   - Simple handle_request method focused on delegation
-   - Specialized methods for each operation
-   - Consistent error handling and reporting
-   - Context-aware logging throughout
-
-3. **Documentation Updates**
-   - Code examples for all recommended patterns
-   - Comprehensive testing guidelines
-   - Consistent format across all documentation
-   - Clear explanations of design decisions
-
-# Removal of process_request Backward Compatibility
-
-This update removes backward compatibility with the deprecated `process_request` method, focusing exclusively on the `handle_request` approach.
-
-## Changes Made
-
-1. **API Simplification**
-   - Removed the deprecated `process_request` method from the `AbstractService` trait
-   - Updated all service implementations to remove their `process_request` methods
-   - Updated client code to use `handle_request` instead of `process_request`
-
-2. **Code Cleanup**
-   - Removed unnecessary `#[allow(deprecated)]` attributes
-   - Simplified service implementations by focusing on a single request handling method
-   - Updated mixins to use consistent naming with `handle_request` instead of `process_request`
-
-3. **Documentation Updates**
-   - Removed all references to backward compatibility with `process_request`
-   - Updated examples to show only the modern `handle_request` approach
-   - Added notes about the API simplification
-
-## Migration Guide
-
-For any code still using `process_request`, follow these steps:
-
-1. **Find and Replace**: Search for all instances of `process_request` in your code and replace with `handle_request`
-2. **Update Tests**: Make sure all tests are updated to use `handle_request` instead of `process_request`
-3. **Check for Mixins**: If you have custom mixins, update their method names for consistency
-4. **Review Documentation**: Make sure any documentation you maintain is updated to reflect the new API
-
-## Benefits
-
-1. **API Clarity**: Removes confusion about which method to use
-2. **Code Simplicity**: Reduces the amount of code in services
-3. **Performance**: Eliminates an unnecessary method call for backward compatibility
-4. **Modernization**: Aligns with current best practices for Rust API design 
+### 1. **Website Generation**
+- Documentation is now prepared for website generation
+- Consistent structure and formatting
+- Proper cross-references and navigation
+- Code examples and diagrams ready for rendering
+
+### 2. **Additional Content**
+- **Examples Section**: Real-world application examples
+- **Tutorials**: Step-by-step guides for common use cases
+- **Troubleshooting**: Common issues and solutions
+- **Performance Guide**: Optimization and best practices
+
+### 3. **API Documentation**
+- **Rustdoc Integration**: Generate API docs from code
+- **Interactive Examples**: Runnable code examples
+- **Type Documentation**: Comprehensive type documentation
+- **Error Reference**: Complete error documentation
+
+## Impact Assessment
+
+### Developer Onboarding
+- **Faster Learning**: Clear examples and tutorials
+- **Better Understanding**: Comprehensive architecture documentation
+- **Easier Implementation**: Practical code examples
+- **Reduced Friction**: Clear next steps and guidance
+
+### Feature Adoption
+- **Encryption Features**: Well-documented and easy to use
+- **Service Development**: Elegant macro-based approach
+- **Cross-Device Sharing**: Clear patterns and examples
+- **Security Best Practices**: Comprehensive security guidance
+
+### Community Growth
+- **Clear Value Proposition**: Well-documented features and benefits
+- **Easy Contribution**: Clear guidelines and examples
+- **Professional Quality**: Production-ready documentation
+- **Comprehensive Coverage**: All major features documented
+
+---
+
+*This documentation update reflects the current implementation as of January 2025. All features documented are implemented and tested in the codebase.*
+
+*Last updated: 2025-01-27* 

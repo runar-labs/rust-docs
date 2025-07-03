@@ -1,106 +1,386 @@
-# Runar Key Management Specification
+# Runar Key Management System
 
-This specification defines how Runar generates, stores, and uses cryptographic keys to provide identity, authentication, encryption, and access control across multiple user-defined peer-to-peer networks.
+This document describes the comprehensive key management system in Runar, including PKI infrastructure, envelope encryption, and mobile key management capabilities.
 
----
 ## Table of Contents
+
 1. [Overview](#overview)
-2. [Key Classes](#key-classes)
-3. [Hierarchical Derivation](#hierarchical-derivation)
-4. [Encryption Modes](#encryption-modes)
-5. [Epoch Rotation & Forward Secrecy](#epoch-rotation--forward-secrecy)
-6. [Access Tokens](#access-tokens)
-7. [QUIC Transport Security](#quic-transport-security)
+2. [PKI Infrastructure](#pki-infrastructure)
+3. [Key Classes](#key-classes)
+4. [Mobile Key Management](#mobile-key-management)
+5. [Node Key Management](#node-key-management)
+6. [Envelope Encryption](#envelope-encryption)
+7. [Certificate Workflow](#certificate-workflow)
 8. [Security Considerations](#security-considerations)
-9. [Glossary](#glossary)
+9. [API Reference](#api-reference)
 
----
 ## Overview
-Runar uses a single 32-byte Ed25519 **User Master Key** as the root of trust.  All other keys are deterministically derived and divided into *signing* (Ed25519) and *encryption* (X25519) roles:
-* Ed25519 → signatures, certificates, token signing.
-* X25519 → Diffie-Hellman (sealed box, shared keys).
 
----
+Runar implements a production-ready key management system that provides:
+
+- **PKI Infrastructure**: X.509 certificate-based identity and authentication
+- **Mobile Key Management**: Self-custodied keys with mobile wallet integration
+- **Envelope Encryption**: Multi-recipient encryption for cross-device data sharing
+- **Node Local Encryption**: Secure local storage encryption
+- **Profile-based Access Control**: User profile keys for personal/work/family data
+
+The system is designed for end-to-end encryption where data remains encrypted from producer to consumer, with keys managed by users through their mobile devices.
+
+## PKI Infrastructure
+
+### Certificate Hierarchy
+
+Runar uses a hierarchical PKI system with the following structure:
+
+```
+Mobile User CA (Self-signed root certificate)
+└── Node TLS Certificate (signed by Mobile CA)
+    └── Used for all QUIC/TLS operations
+```
+
+### Certificate Standards
+
+- **Algorithm**: ECDSA P-256 throughout the entire system
+- **Certificate Format**: Standard X.509 with proper extensions
+- **CSR Format**: PKCS#10 Certificate Signing Requests
+- **Encoding**: DER encoding for all certificate storage and transmission
+- **Compliance**: Full compliance with RFC 5280 and related standards
+
+### QUIC Transport Security
+
+The system provides QUIC/TLS compatibility through:
+
+- **Certificate Chains**: Node certificate + CA certificate
+- **Private Key Format**: PKCS#8 compatible with rustls/Quinn
+- **Certificate Validation**: Full cryptographic validation with DN normalization
+- **Peer Authentication**: Mutual authentication during QUIC handshake
+
 ## Key Classes
-| Class | Algo | Derivation | Purpose |
-|-------|------|------------|---------|
-| **User Master Key** | Ed25519 | random | Root; backups, seed for HD paths |
-| **User Profile Key** | Ed25519 | `m/44'/0'/profile'` + index | Signs user content; public key = *ProfileId*; converted to X25519 for sealed-box decryption |
-| **Network Key** | Ed25519 | `m/44'/0'/net'` + index | Owns a network, signs access tokens; may be used as per-network QUIC certificate |
-| **Node Key** | Ed25519 | `m/44'/0'/node'` + index | Identifies a peer instance; encrypts node-local data |
-| **X25519 Conversion** | X25519 | clamp(Ed25519 scalar) | Used whenever DH is needed (sealed box, shared keys) |
 
-> Only the **User Master Key** and **User Profile Keys** leave the node (mobile backup, secure gateway).  All other keys stay on the node in encrypted storage.
+| Class | Purpose | Storage Location | Derivation | Algorithm |
+|-------|---------|------------------|------------|-----------|
+| **User Root Key** | Master key for mobile wallet | Mobile device (secure storage) | Random generation | ECDSA P-256 |
+| **User Profile Keys** | Personal/work/family profiles | Mobile device | Derived from root key | ECDSA P-256 |
+| **Node Storage Keys** | Local node encryption | Node (encrypted storage) | 32-byte random | AES-256 |
+| **Network Data Keys** | Cross-network sharing | Mobile + Node | Derived from root key | ECDSA P-256 |
+| **Envelope Keys** | Ephemeral per-object | Generated on-demand | Ephemeral | AES-256-GCM |
 
----
-## Hierarchical Derivation
-Derivation follows BIP-44 style hardened paths:
+### Key Derivation
+
+Profile keys are derived using HKDF from the user root key:
+
+```rust
+// Example key derivation
+let root_key = self.user_root_key.as_ref()?;
+let root_key_bytes = root_key.private_key_der()?;
+let hk = Hkdf::<Sha256>::new(None, &root_key_bytes);
+
+let info = format!("runar-profile-{}", profile_id);
+let mut derived_key = [0u8; 32];
+hk.expand(info.as_bytes(), &mut derived_key)?;
 ```
-m / 44' / 0' / <class>' / <index>'
+
+## Mobile Key Management
+
+The `MobileKeyManager` provides comprehensive key management for mobile devices:
+
+### Core Operations
+
+```rust
+pub struct MobileKeyManager {
+    ca_key_pair: EcdsaKeyPair,
+    ca_certificate: X509Certificate,
+    user_keys: HashMap<String, EcdsaKeyPair>,
+    network_keys: HashMap<String, EcdsaKeyPair>,
+}
 ```
-* `class = 0` profile, `1` network, `2` node.
-* All indices hardened so child keys cannot compromise parents.
 
----
-## Encryption Modes
-| Data Class | Needs to read | Mode |
-|------------|--------------|------|
-| **User-private** (profile data) | User only | **Sealed Box**: ephemeral X25519 → user_pub, AEAD cipher ⇒ `(epub||nonce||cipher)` |
-| **User → System shared** (e.g. e-mail for notifications) | System **until TTL** | X25519 static–static DH `(user_priv,node_pub)` + **per-record TTL** in header → symmetric key → AEAD |
-| **System internal** (telemetry, gossip) | All nodes in network | X25519 static–static DH `(user_priv,node_pub)` + **epoch tag** → AEAD |
-| **Node-local** | Same node | Symmetric key derived once from Node Key secret |
+### Key Generation and Management
 
-AEAD algorithm = ChaCha20-Poly1305 (mobile) or AES-GCM (desktop).  AAD always includes `NetworkId`, `ProfileId`, and a version byte.
+1. **User Root Key Initialization**
+   ```rust
+   let user_root_public_key = mobile.initialize_user_root_key()?;
+   ```
 
----
-## Epoch Rotation & Forward Secrecy
-`GLOBAL_EPOCH` is a monotonically increasing `u64` **per network**.  It protects **system-internal traffic only** (row “System internal”).  It is signed by the Network Key and gossiped periodically.
+2. **Profile Key Derivation**
+   ```rust
+   let profile_personal_key = mobile.derive_user_profile_key("personal")?;
+   let profile_work_key = mobile.derive_user_profile_key("work")?;
+   ```
 
+3. **Network Key Generation**
+   ```rust
+   let network_id = mobile.generate_network_data_key()?;
+   ```
+
+### Certificate Authority Operations
+
+1. **CSR Processing**
+   ```rust
+   let cert_message = mobile.process_setup_token(&setup_token)?;
+   ```
+
+2. **Certificate Issuance**
+   - Validates CSR structure and signature
+   - Signs with OpenSSL using CA private key
+   - Creates X.509 certificate with proper extensions
+   - Returns certificate + CA certificate
+
+### Envelope Encryption
+
+```rust
+// Encrypt data for network and profiles
+let envelope = mobile.encrypt_with_envelope(
+    test_data,
+    &network_id,
+    vec!["personal".to_string(), "work".to_string()],
+)?;
+
+// Decrypt using profile key
+let decrypted = mobile.decrypt_with_profile(&envelope, "personal")?;
 ```
-ss        = X25519(user_priv, node_pub)
-info_tag  = format!("epoch:{}", GLOBAL_EPOCH)
-k_epoch   = HKDF-SHA256(ss, info = info_tag)
+
+## Node Key Management
+
+The `NodeKeyManager` provides key management for nodes:
+
+### Core Operations
+
+```rust
+pub struct NodeKeyManager {
+    node_key_pair: EcdsaKeyPair,
+    node_certificate: Option<X509Certificate>,
+    ca_certificate: Option<X509Certificate>,
+    certificate_validator: Option<CertificateValidator>,
+    network_keys: HashMap<String, EcdsaKeyPair>,
+}
 ```
-* Nodes cache only the last *N* epochs for system traffic; older keys are purged.
-* **User-shared keys ignore epoch** and are deleted strictly after their individual TTL.
-* New nodes fetch the current epoch during discovery and verify the signature to prevent replay.
 
----
-## Access Tokens
-* Signed by a **Network Key**.
-* Payload: `peer_id, network_id, expiry, capabilities[]`.
-* Used during QUIC handshake (or pub/sub subscribe) for authorisation.
+### Certificate Management
 
----
-## QUIC Transport Security
-| Model | Certificate Key | Conns per node-pair | Pros | Cons |
-|-------|-----------------|---------------------|------|------|
-| **A Per-network** | Network Key | O(networks²) | Perfect isolation, simple auth | More TLS handshakes & sockets |
-| **B Per-node** | Node Key | 1 | Fewer connections | Needs in-stream proof of NetworkKey; cross-network isolation relies on higher layers |
+1. **CSR Generation**
+   ```rust
+   let setup_token = node.generate_csr()?;
+   ```
 
-**POC** adopts Model A.  Model B can be added later using TLS ALPN + stream signatures.
+2. **Certificate Installation**
+   ```rust
+   node.install_certificate(cert_message)?;
+   ```
 
----
+3. **QUIC Configuration**
+   ```rust
+   let quic_config = node.get_quic_certificate_config()?;
+   ```
+
+### Network Key Management
+
+1. **Network Key Installation**
+   ```rust
+   node.install_network_key(network_key_message)?;
+   ```
+
+2. **Envelope Decryption**
+   ```rust
+   let decrypted = node.decrypt_envelope_data(&envelope)?;
+   ```
+
+### Local Storage Encryption
+
+```rust
+// Encrypt local data
+let encrypted = node.encrypt_local_data(file_data)?;
+
+// Decrypt local data
+let decrypted = node.decrypt_local_data(&encrypted)?;
+```
+
+## Envelope Encryption
+
+Envelope encryption provides multi-recipient access control for cross-device data sharing.
+
+### Envelope Structure
+
+```rust
+pub struct EnvelopeEncryptedData {
+    pub encrypted_data: Vec<u8>,           // AES-GCM encrypted payload
+    pub network_id: String,                // Network identifier
+    pub network_encrypted_key: Vec<u8>,    // Network key encrypted with node key
+    pub profile_encrypted_keys: HashMap<String, Vec<u8>>, // Profile keys encrypted with user keys
+}
+```
+
+### Encryption Process
+
+1. **Generate Ephemeral Key**: Create a random AES-256 key for the data
+2. **Encrypt Data**: Use AES-GCM to encrypt the payload with the ephemeral key
+3. **Encrypt for Network**: Encrypt the ephemeral key with the network key
+4. **Encrypt for Profiles**: Encrypt the ephemeral key with each profile's public key
+5. **Assemble Envelope**: Combine all encrypted components
+
+### Decryption Process
+
+1. **Network Decryption**: Node decrypts ephemeral key using network key
+2. **Profile Decryption**: Mobile decrypts ephemeral key using profile key
+3. **Data Decryption**: Use ephemeral key to decrypt the payload
+
+## Certificate Workflow
+
+### Phase 1: CA Initialization
+```mermaid
+flowchart TD
+    A[Mobile App Start] --> B[Generate ECDSA P-256 Key Pair]
+    B --> C[Create Self-signed CA Certificate]
+    C --> D[CA Ready to Issue Certificates]
+```
+
+### Phase 2: Node Certificate Issuance
+```mermaid
+sequenceDiagram
+    participant M as Mobile CA
+    participant N as Node
+    
+    N->>N: Generate ECDSA key pair
+    N->>N: Create PKCS#10 CSR
+    N->>M: Send CSR in setup token
+    M->>M: Validate CSR
+    M->>M: Sign CSR with OpenSSL
+    M->>M: Create X.509 certificate
+    M->>N: Send certificate + CA cert
+    N->>N: Install and validate certificates
+    N->>N: Ready for QUIC transport
+```
+
+### Phase 3: QUIC Transport Setup
+```mermaid
+sequenceDiagram
+    participant N1 as Node 1
+    participant N2 as Node 2
+    
+    Note over N1,N2: Both nodes have certificates from same CA
+    
+    N1->>N2: QUIC connection with TLS handshake
+```
+
 ## Security Considerations
-* Key separation: signing vs encryption keys.
-* Forward secrecy: sealed box + epoch rotation.
-* Compromise impact:
-  * lost User Master Key ⇒ full account takeover.
-  * lost Node Key ⇒ node-local data leak only.
-* Backups: Master & Profile keys must be exported securely (Ledger, seed phrase).  All other keys are re-derivable.
-* Revocation:
-  * **Network keys** – rotate Network Key → issue new tokens, new QUIC cert.
-  * **System shared keys** – bump `GLOBAL_EPOCH`; nodes keep last _RETENTION_EPOCHS_ for system traffic only.
-  * **User shared keys** – stored with explicit TTL; node deletes key + ciphertext immediately after expiry.
+
+### Key Separation
+
+- **Signing vs Encryption**: Separate keys for different purposes
+- **Profile Isolation**: Each profile has independent keys
+- **Network Isolation**: Network keys are isolated per network
+- **Node Isolation**: Node keys are local to each node
+
+### Forward Secrecy
+
+- **Ephemeral Keys**: Envelope encryption uses ephemeral keys
+- **Key Rotation**: Network keys can be rotated
+- **Profile Rotation**: Profile keys can be re-derived
+
+### Compromise Impact
+
+- **User Root Key**: Full account compromise
+- **Node Key**: Local node data compromise only
+- **Network Key**: Network data compromise only
+- **Profile Key**: Profile data compromise only
+
+### Backup and Recovery
+
+- **User Root Key**: Must be backed up securely (seed phrase)
+- **Profile Keys**: Re-derivable from root key
+- **Network Keys**: Re-derivable from root key
+- **Node Keys**: Local to node, not backed up
+
+## API Reference
+
+### Mobile Key Manager
+
+```rust
+pub struct MobileKeyManager {
+    // Initialize with self-signed CA certificate
+    pub fn new(logger: Arc<Logger>) -> Result<Self>;
+    
+    // Generate user root key
+    pub fn initialize_user_root_key(&mut self) -> Result<Vec<u8>>;
+    
+    // Process node CSR and issue certificate
+    pub fn process_setup_token(&mut self, token: &SetupToken) -> Result<NodeCertificateMessage>;
+    
+    // Generate network data key
+    pub fn generate_network_data_key(&mut self) -> Result<String>;
+    
+    // Create network key message for node
+    pub fn create_network_key_message(&self, network_id: &str, node_id: &str) -> Result<NetworkKeyMessage>;
+    
+    // Derive user profile key
+    pub fn derive_user_profile_key(&mut self, profile_id: &str) -> Result<Vec<u8>>;
+    
+    // Envelope encryption
+    pub fn encrypt_with_envelope(&self, data: &[u8], network_id: &str, profile_ids: Vec<String>) -> Result<EnvelopeEncryptedData>;
+    
+    // Profile decryption
+    pub fn decrypt_with_profile(&self, envelope: &EnvelopeEncryptedData, profile_id: &str) -> Result<Vec<u8>>;
+}
+```
+
+### Node Key Manager
+
+```rust
+pub struct NodeKeyManager {
+    // Generate node identity and CSR
+    pub fn new(logger: Arc<Logger>) -> Result<Self>;
+    pub fn generate_csr(&mut self) -> Result<SetupToken>;
+    
+    // Install certificate from mobile
+    pub fn install_certificate(&mut self, cert_message: NodeCertificateMessage) -> Result<()>;
+    
+    // Install network key from mobile
+    pub fn install_network_key(&mut self, key_message: NetworkKeyMessage) -> Result<()>;
+    
+    // Get QUIC certificate configuration
+    pub fn get_quic_certificate_config(&self) -> Result<QuicCertificateConfig>;
+    
+    // Envelope decryption
+    pub fn decrypt_envelope_data(&self, envelope: &EnvelopeEncryptedData) -> Result<Vec<u8>>;
+    
+    // Local storage encryption
+    pub fn encrypt_local_data(&self, data: &[u8]) -> Result<Vec<u8>>;
+    pub fn decrypt_local_data(&self, encrypted_data: &[u8]) -> Result<Vec<u8>>;
+}
+```
+
+### Certificate Authority
+
+```rust
+pub struct CertificateAuthority {
+    // Create CA with self-signed certificate
+    pub fn new(subject: &str) -> Result<Self>;
+    
+    // Sign CSR using OpenSSL to create proper X.509 certificate
+    pub fn sign_certificate_request(&self, csr_der: &[u8], validity_days: u32) -> Result<X509Certificate>;
+    
+    // Get CA certificate for distribution
+    pub fn ca_certificate(&self) -> &X509Certificate;
+}
+```
+
+### Certificate Validator
+
+```rust
+pub struct CertificateValidator {
+    // Full cryptographic validation with DN normalization
+    pub fn validate_certificate(&self, certificate: &X509Certificate) -> Result<()>;
+    
+    // Complete certificate chain validation
+    pub fn validate_certificate_chain(&self, certificate: &X509Certificate, chain: &[X509Certificate]) -> Result<()>;
+    
+    // TLS-specific validation
+    pub fn validate_for_tls_server(&self, certificate: &X509Certificate) -> Result<()>;
+}
+```
 
 ---
-## Glossary
-* **AAD** – Additional Authenticated Data.
-* **AEAD** – Authenticated Encryption with Associated Data.
-* **Epoch** – uint64 counter providing key-rotation window.
-* **HD Path** – BIP-44 hardened derivation path.
-* **Sealed Box** – Ephemeral sender → static receiver encryption pattern (NaCl).
-* **X25519 Clamp** – Standard private-key conversion from Ed25519 scalar.
 
----
-*Last updated: 2025-06-12*
+*This documentation reflects the current implementation as of the latest release. For implementation details, see the end-to-end tests in `runar-keys/tests/end_to_end_test.rs`.*
+
+*Last updated: 2025-01-27*
