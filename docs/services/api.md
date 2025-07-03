@@ -616,7 +616,7 @@ async fn setup_temporary_subscription(&self, context: &RequestContext) -> Result
 
 ### Error Handling
 
-Use Result<T> for error handling and propagate errors appropriately:
+Use Result&lt;T&gt; for error handling and propagate errors appropriately:
 
 ```rust
 async fn some_operation(&self, request: &ServiceRequest) -> Result<ServiceResponse> {
@@ -675,7 +675,7 @@ let score = vmap_f32!(params, "score" => 0.0);
 let is_active = vmap_bool!(params, "is_active" => false);
 
 // Collection parameter extraction
-let tags = vmap_vec!(params, "tags" => Vec::<String>::new());
+let tags = vmap_vec!(params, "tags" => Vec::&lt;String&gt;::new());
 
 // Nested parameter extraction with dot notation
 let email = vmap_str!(params, "user.contact.email" => "");
@@ -694,6 +694,7 @@ These specialized macros not only provide cleaner code but also help with type i
 
 This section will be expanded with practical examples.
 
+```rust
 // Example of sending a request to a service
 async fn send_update_request(node: &Node) -> Result<()> {
     let params = vmap! {
@@ -724,3 +725,4 @@ async fn publish_record_updated(node: &Node, record_id: &str) -> Result<()> {
     
     Ok(())
 }
+```

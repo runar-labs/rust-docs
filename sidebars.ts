@@ -1,14 +1,10 @@
-import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
+import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 
 const sidebars: SidebarsConfig = {
   tutorialSidebar: [
-    'intro',
     {
       type: 'category',
       label: 'Getting Started',
-      link: {
-        type: 'generated-index',
-      },
       items: [
         'getting-started/quickstart',
         'getting-started/overview',
@@ -18,63 +14,40 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Core Concepts',
-      link: {
-        type: 'generated-index',
-      },
       items: [
         'core/architecture',
-        'core/p2p',
         'core/discovery',
-        'core/lifecycle',
-        'core/context',
         'core/logging',
-        'core/vmap',
-        'core/request_handling',
+        'core/p2p',
         'core/system-diagrams',
       ],
     },
     {
       type: 'category',
       label: 'Features',
-      link: {
-        type: 'generated-index',
-      },
       items: [
-        'features/keys-management',
+        'features/caching',
         'features/encryption-schema',
         'features/enhanced-serialization',
-        'features/macros',
+        'features/keys-management',
         'features/logging',
-        'features/metrics',
-        'features/caching',
+        'features/vmap',
       ],
     },
     {
       type: 'category',
       label: 'Services',
-      link: {
-        type: 'generated-index',
-      },
       items: [
         'services/api',
-        'services/gateway',
+        'services/context',
         'services/example-service',
+        'services/gateway',
+        'services/lifecycle',
         'services/macro_usage_guide',
         'services/macros',
-      ],
-    },
-    {
-      type: 'category',
-      label: 'Development',
-      link: {
-        type: 'generated-index',
-      },
-      items: [
-        'development/macros',
-        'development/mobile',
       ],
     },
   ],
 };
 
-export default sidebars; 
+export default sidebars;

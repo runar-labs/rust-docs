@@ -111,4 +111,4 @@ Now that you have Runar installed, you can:
 
 - Follow the [Quick Start Guide](quickstart) to create your first Runar application
 - Explore the [API Reference](../services/api) to learn about available functionality
-- Check out the [Example Service](getting-started/example) for a complete implementation
+- Check out the  for a complete implementation

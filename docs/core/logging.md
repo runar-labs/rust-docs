@@ -239,7 +239,7 @@ The logging system integrates with:
 
 ## Related Documentation
 
-- [Context System](context.md) - How context enables secure and traceable communication
-- [Request Handling](request_handling.md) - Best practices for using logging in request handlers
-- [Service Lifecycle](lifecycle.md) - Understanding service logging during different lifecycle phases
-- [ValueMap (VMap)](vmap.md) - Core abstraction for working with structured data 
+- Context System - How context enables secure and traceable communication
+- Request Handling - Best practices for using logging in request handlers
+- Service Lifecycle - Understanding service logging during different lifecycle phases
+- ValueMap (VMap) - Core abstraction for working with structured data 

@@ -348,14 +348,12 @@ You've created a simple Runar service! Here are some next steps to explore:
 - Add [Caching](../features/caching)
 
 ### 3. Build Real Applications
-- Create a [Task Management System](../examples/task-manager)
-- Build a [Chat Application](../examples/chat-app)
-- Implement a [File Sharing System](../examples/file-sharing)
+- Create a 
+- Build a 
+- Implement a 
 
 ### 4. Learn the Architecture
 - Understand [Runar's Architecture](../core/architecture)
-- Learn about [Service Lifecycle](../core/lifecycle)
-- Explore [Request Handling](../core/request_handling)
 
 ## Extending the Service
 
@@ -381,7 +379,7 @@ To extend this service, you can:
 
 - Check the [Architecture Documentation](../core/architecture)
 - Review the [API Reference](../services/api)
-- Look at the [Examples](../examples)
+- Look at the 
 - Join the community discussions
 
 Happy coding with Runar!
