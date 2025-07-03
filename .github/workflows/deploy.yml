@@ -1,0 +1,54 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'rust-docs/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'rust-docs/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: |
+          cd rust-docs
+          bun install
+
+      - name: Copy Latest Content
+        run: |
+          cd rust-docs/website-docusaurus
+          cp -r ../markdown/getting-started/* docs/getting-started/
+          cp -r ../markdown/core/* docs/core/
+          cp -r ../markdown/features/* docs/features/
+          cp -r ../markdown/services/* docs/services/
+          cp -r ../markdown/development/* docs/development/
+          cp -r ../markdown/assets static/ -r
+
+      - name: Build Documentation
+        run: |
+          cd rust-docs
+          bun run build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./rust-docs/build
+          publish_branch: gh-pages
+          commit_message: ${{ github.event.head_commit.message }} 

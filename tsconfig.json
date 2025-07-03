@@ -1,0 +1,13 @@
+{
+  "extends": "@docusaurus/module-type-aliases",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@site/*": ["./*"],
+      "@docusaurus/*": ["node_modules/@docusaurus/*"],
+      "@generated/*": ["./.docusaurus/@generated/*"],
+      "@theme/*": ["node_modules/@docusaurus/theme-classic/lib/theme/*"],
+      "@theme-common/*": ["node_modules/@docusaurus/theme-common/lib/*"]
+    }
+  }
+} 
