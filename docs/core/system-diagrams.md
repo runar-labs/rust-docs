@@ -30,17 +30,14 @@ Shows the flow of a request to a local service.
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant G as Gateway
     participant SR as ServiceRegistry
     participant S as Service
 
-    C->>G: HTTP Request
-    G->>SR: Lookup Service
-    SR-->>G: Return Service Reference
-    G->>S: Forward Request
+    C->>SR: Service Request
+    SR-->>C: Return Service Reference
+    C->>S: Direct Request
     Note over S: Process Request
-    S-->>G: Return Response
-    G-->>C: HTTP Response
+    S-->>C: Return Response
 ```
 
 ### Remote Service Request
@@ -49,22 +46,19 @@ Illustrates how requests are handled when the target service is on a remote peer
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant G as Gateway
     participant SR as ServiceRegistry
     participant P2P as P2PTransport
     participant RP as RemotePeer
     participant RS as RemoteService
 
-    C->>G: HTTP Request
-    G->>SR: Lookup Service
+    C->>SR: Service Request
     SR->>P2P: Find Remote Service
     P2P->>RP: Service Discovery Request
     RP-->>P2P: Service Info Response
     P2P->>RS: Forward Request
     Note over RS: Process Request
     RS-->>P2P: Return Response
-    P2P-->>G: Forward Response
-    G-->>C: HTTP Response
+    P2P-->>C: Forward Response
 ```
 
 ### P2P Discovery and Connection

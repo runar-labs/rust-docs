@@ -21,7 +21,8 @@ Below is an example of a `DataService` that manages data records, with operation
 ```rust
 use anyhow::{anyhow, Result};
 use chrono::Utc;
-use runar_node::services::{RequestContext, ValueType};
+use runar_node::services::RequestContext;
+use runar_common::types::ArcValue;
 use runar_node::vmap;
 use runar_macros::{service, action, subscribe};
 use serde::{Serialize, Deserialize};
@@ -57,21 +58,15 @@ impl DataRecord {
         self.updated_at = Utc::now().to_rfc3339();
     }
 
-    // Convert to ValueType for event publishing
-    fn to_value_type(&self) -> ValueType {
-        vmap! {
-            "id" => self.id.clone(),
-            "name" => self.name.clone(),
-            "value" => self.value.clone(),
-            "created_at" => self.created_at.clone(),
-            "updated_at" => self.updated_at.clone()
-        }
+    // Convert to ArcValue for event publishing
+    fn to_arc_value(&self) -> ArcValue {
+        ArcValue::from_struct(self.clone())
     }
 }
 
-impl From<DataRecord> for ValueType {
+impl From<DataRecord> for ArcValue {
     fn from(record: DataRecord) -> Self {
-        record.to_value_type()
+        ArcValue::from_struct(record)
     }
 }
 
@@ -86,30 +81,7 @@ struct DataService {
     records: Arc<Mutex<HashMap<String, DataRecord>>>,
 }
 
-// When using the #[service] macro, the AbstractService trait is automatically implemented with:
-/*
-#[async_trait]
-impl AbstractService for DataService {
-    fn name(&self) -> &str {
-        "data"
-    }
-    
-    fn path(&self) -> &str {
-        "data_service"
-    }
-    
-    fn description(&self) -> &str {
-        "Service for managing data records"
-    }
-    
-    fn version(&self) -> &str {
-        "1.0.0"
-    }
-    
-    // Other trait methods...
-}
-*/
-
+#[service_impl]
 impl DataService {
     pub fn new() -> Self {
         DataService {
@@ -133,8 +105,8 @@ impl DataService {
         
         // Publish event that a record was created
         context.publish(
-            &format!("{}/created", context.service_path()), 
-            record.to_value_type()
+            &format!("{}/created", context.service_path()),
+            ArcValue::from_struct(record.clone())
         ).await?;
         
         // Return just the record ID directly
@@ -172,8 +144,8 @@ impl DataService {
         if let Some(record) = updated_record {
             // Publish event that a record was updated
             context.publish(
-                &format!("{}/updated", context.service_path()), 
-                record.to_value_type()
+                &format!("{}/updated", context.service_path()),
+                ArcValue::from_struct(record.clone())
             ).await?;
             
             Ok(record)
@@ -197,8 +169,8 @@ impl DataService {
         if let Some(record) = deleted_record {
             // Publish event that a record was deleted
             context.publish(
-                &format!("{}/deleted", context.service_path()), 
-                record.to_value_type()
+                &format!("{}/deleted", context.service_path()),
+                ArcValue::from_struct(record.clone())
             ).await?;
             
             Ok(true)
@@ -234,6 +206,7 @@ struct DataMonitorService {
     stats: Arc<Mutex<HashMap<String, usize>>>,
 }
 
+#[service_impl]
 impl DataMonitorService {
     pub fn new() -> Self {
         let mut stats = HashMap::new();
@@ -259,43 +232,43 @@ impl DataMonitorService {
     
     // Event handlers for the various data events
     #[subscribe(topic = "data_service/created")]
-    async fn on_record_created(&mut self, payload: ValueType) -> Result<()> {
-        // Extract the record ID using vmap_str! macro with default value
-        let record_id = vmap_str!(payload, "id" => "");
+    async fn on_record_created(&mut self, payload: ArcValue) -> Result<()> {
+        // Extract the record from the payload
+        let record: DataRecord = payload.as_type()?;
         
         // Update the statistics
         let mut stats = self.stats.lock().await;
         *stats.entry("created".to_string()).or_insert(0) += 1;
         *stats.entry("total".to_string()).or_insert(0) += 1;
         
-        println!("Record created: {}", record_id);
+        println!("Record created: {}", record.id);
         Ok(())
     }
     
     #[subscribe(topic = "data_service/updated")]
-    async fn on_record_updated(&mut self, payload: ValueType) -> Result<()> {
-        // Extract the record ID using vmap_str! macro with default value
-        let record_id = vmap_str!(payload, "id" => "");
+    async fn on_record_updated(&mut self, payload: ArcValue) -> Result<()> {
+        // Extract the record from the payload
+        let record: DataRecord = payload.as_type()?;
         
         // Update the statistics
         let mut stats = self.stats.lock().await;
         *stats.entry("updated".to_string()).or_insert(0) += 1;
         
-        println!("Record updated: {}", record_id);
+        println!("Record updated: {}", record.id);
         Ok(())
     }
     
     #[subscribe(topic = "data_service/deleted")]
-    async fn on_record_deleted(&mut self, payload: ValueType) -> Result<()> {
-        // Extract the record ID using vmap_str! macro with default value
-        let record_id = vmap_str!(payload, "id" => "");
+    async fn on_record_deleted(&mut self, payload: ArcValue) -> Result<()> {
+        // Extract the record from the payload
+        let record: DataRecord = payload.as_type()?;
         
         // Update the statistics
         let mut stats = self.stats.lock().await;
         *stats.entry("deleted".to_string()).or_insert(0) += 1;
         *stats.entry("total".to_string()).or_insert(0) -= 1;
         
-        println!("Record deleted: {}", record_id);
+        println!("Record deleted: {}", record.id);
         Ok(())
     }
 }
@@ -349,8 +322,8 @@ async fn main() -> Result<()> {
         },
     ).await?;
     
-    // Extract the record ID directly (the action returns a String)
-    let record_id = vmap_str!(create_result.data, => "");
+    // The action returns a String directly
+    let record_id: String = create_result;
     println!("Created record with ID: {}", record_id);
     
     // Update the record using map-based parameters
@@ -365,8 +338,7 @@ async fn main() -> Result<()> {
     println!("Updated record: {:?}", updated_record);
     
     // Count records - direct value extraction
-    let count_result = node.request("data_service/count", vmap!{}).await?;
-    let record_count = vmap_u32!(count_result.data, => 0);
+    let record_count: u32 = node.request("data_service/count", None).await?;
     println!("Current record count: {}", record_count);
     
     // Get a record using direct parameter passing
@@ -376,10 +348,9 @@ async fn main() -> Result<()> {
         record_id.clone(), // Direct string parameter without vmap!
     ).await?;
     
-    // Extract the record data using specialized vmap macros
-    let record_name = vmap_str!(get_result.data, "name" => "");
-    let record_value = vmap_str!(get_result.data, "value" => "");
-    println!("Retrieved record - Name: {}, Value: {}", record_name, record_value);
+    // The action returns a DataRecord directly
+    let record: DataRecord = get_result;
+    println!("Retrieved record - Name: {}, Value: {}", record.name, record.value);
     
     // Wait a bit for events to be processed
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -390,8 +361,9 @@ async fn main() -> Result<()> {
         vmap! {}, // Empty map for no parameters
     ).await?;
     
-    // The stats result contains a direct HashMap
-    println!("Current stats: {:?}", stats_result);
+    // The action returns a HashMap directly
+    let stats: HashMap<String, u32> = stats_result;
+    println!("Current stats: {:?}", stats);
     
     // Delete the record - this action takes a single string parameter
     let delete_result = node.request(
@@ -399,8 +371,8 @@ async fn main() -> Result<()> {
         record_id, // Direct parameter without vmap!
     ).await?;
     
-    // The delete action returns a boolean
-    let delete_success = vmap_bool!(delete_result.data, => false);
+    // The action returns a boolean directly  
+    let delete_success: bool = delete_result;
     println!("Delete successful: {}", delete_success);
     
     // Wait for events to be processed
@@ -412,6 +384,7 @@ async fn main() -> Result<()> {
         vmap! {},
     ).await?;
     
+    let final_stats: HashMap<String, u32> = final_stats;
     println!("Final stats: {:?}", final_stats);
     
     // Gracefully shut down the node
@@ -435,8 +408,8 @@ async fn main() -> Result<()> {
        .and_then(|id| id.as_str().map(|s| s.to_string()))
        .expect("Failed to get record ID");
        
-   // With specialized vmap macro:
-   let record_id = vmap_str!(create_result.data, => "");
+   // With direct return types:
+   let record_id: String = create_result;
    ```
 
 3. **Direct Parameter Passing**: For actions with a single parameter, you can pass the value directly:

@@ -21,7 +21,7 @@ This specification defines a peer-to-peer (P2P) transport layer implemented in R
    - [DHT Implementation](#dht-implementation)
 6. [Integration](#integration)
    - [Service Integration](#service-integration)
-   - [Gateway Integration](#gateway-integration)
+
    - [Discovery Integration](#discovery-integration)
 
 ## Overview
@@ -363,34 +363,7 @@ impl P2PTransport {
 }
 ```
 
-### Gateway Integration
 
-Integration with the Gateway module for external access:
-
-```rust
-impl Gateway {
-    async fn handle_p2p_request(
-        &self,
-        req: HttpRequest
-    ) -> Result<HttpResponse, Error> {
-        let peer_id = self.extract_peer_id(&req)?;
-        let network_id = self.extract_network_id(&req)?;
-        
-        // Validate access token
-        let token = self.extract_token(&req)?;
-        if !self.p2p.validate_peer_token(peer_id, network_id, &token).await? {
-            return Err(Error::Unauthorized);
-        }
-        
-        // Forward request to P2P network
-        let response = self.p2p
-            .send_to_peer(peer_id, req.into_inner())
-            .await?;
-            
-        Ok(response.into())
-    }
-}
-```
 
 ### Discovery Integration
 
@@ -422,7 +395,7 @@ impl P2PTransport {
 This specification aligns with:
 - Keys Management Specification for PeerId and NetworkId definitions
 - Discovery Mechanism Specification for peer discovery
-- Gateway Specification for external access
+
 - Service Architecture for message routing and processing
 
 

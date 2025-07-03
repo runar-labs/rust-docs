@@ -149,34 +149,30 @@ match optional_value {
 ### Service Parameter Extraction
 
 ```rust
-async fn handle_create_user(&self, request: &ServiceRequest) -> Result<ServiceResponse> {
-    // Extract required parameters with defaults
-    let username = vmap_str!(request.params, "username" => "");
-    let email = vmap_str!(request.params, "email" => "");
-    
-    // Validate required fields
+#[action]
+async fn handle_create_user(&self, username: String, email: String, full_name: Option<String>, age: Option<i32>, is_admin: Option<bool>, ctx: &RequestContext) -> Result<String> {
+    // Validate required fields (type system ensures non-empty)
     if username.is_empty() || email.is_empty() {
-        return Ok(ServiceResponse::error("Username and email are required"));
+        anyhow::bail!("Username and email are required");
     }
     
-    // Extract optional parameters with defaults
-    let full_name = vmap_str!(request.params, "full_name" => username.clone());
-    let age = vmap_i32!(request.params, "age" => 0);
-    let is_admin = vmap_bool!(request.params, "is_admin" => false);
+    // Use provided values or sensible defaults
+    let full_name = full_name.unwrap_or_else(|| username.clone());
+    let age = age.unwrap_or(0);
+    let is_admin = is_admin.unwrap_or(false);
     
     // Create user...
     let user_id = create_user(username, email, full_name, age, is_admin).await?;
     
-    // Return success with data
-    Ok(ServiceResponse::success("User created successfully", 
-        Some(vmap! {"user_id" => user_id})))
+    // Return the user ID directly
+    Ok(user_id)
 }
 ```
 
 ### Event Data Extraction
 
 ```rust
-async fn on_user_updated(&self, payload: ValueType) -> Result<()> {
+async fn on_user_updated(&self, payload: ArcValue) -> Result<()> {
     // Extract event data with appropriate defaults
     let user_id = vmap_str!(payload, "user_id" => "");
     let old_email = vmap_str!(payload, "old_email" => "");
@@ -202,32 +198,23 @@ async fn on_user_updated(&self, payload: ValueType) -> Result<()> {
 
 ```rust
 async fn get_user_details(node: &Node, user_id: &str) -> Result<UserDetails> {
-    // Make service request
-    let response = node.request("user_service/get_user", user_id).await?;
+    // Make service request - returns the User struct directly
+    let user: User = node.request("user_service/get_user", Some(ArcValue::new_primitive(user_id))).await?;
     
-    // Extract data from response
-    if response.status == ResponseStatus::Success {
-        let username = vmap_str!(response.data, "username" => "");
-        let email = vmap_str!(response.data, "email" => "");
-        let created_at = vmap_str!(response.data, "created_at" => "");
-        let profile_data = vmap!(response.data, "profile" => ValueType::Null);
-        
-        // Extract nested profile information
-        let address = vmap_str!(profile_data, "address" => "");
-        let phone = vmap_str!(profile_data, "phone" => "");
-        
-        // Construct user details
-        Ok(UserDetails {
-            user_id: user_id.to_string(),
-            username,
-            email,
-            created_at,
-            address,
-            phone
-        })
-    } else {
-        Err(anyhow!("Failed to get user: {}", response.message))
-    }
+    // If you need to extract from ArcValue payloads (e.g., events), use vmap macros:
+    let payload = ArcValue::from_struct(&user);
+    let username = vmap_str!(payload, "username" => "");
+    let email = vmap_str!(payload, "email" => "");
+    
+    // But typically you'd just use the struct fields directly
+    Ok(UserDetails {
+        user_id: user.id,
+        username: user.username,
+        email: user.email,
+        created_at: user.created_at,
+        address: user.profile.address,
+        phone: user.profile.phone
+    })
 }
 ```
 
@@ -235,7 +222,7 @@ async fn get_user_details(node: &Node, user_id: &str) -> Result<UserDetails> {
 
 ```rust
 // With error propagation
-fn get_required_param(params: &ValueType, name: &str) -> Result<String> {
+fn get_required_param(params: &ArcValue, name: &str) -> Result<String> {
     let value = vmap_str!(params, name => "");
     if value.is_empty() {
         Err(anyhow!("Missing required parameter: {}", name))
@@ -268,7 +255,7 @@ match vmap_i32!(params, "count" => -1) {
 ## Implementation Details
 
 The VMap implementation consists of:
-- The `VMap` struct wrapping a `HashMap<String, ValueType>`
+- The `VMap` struct wrapping a `HashMap<String, ArcValue>`
 - Type-specific extraction methods for different data types
 - The `vmap!` macro with type inference for simplified access
 - Specialized macros for common data types

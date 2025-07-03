@@ -110,5 +110,5 @@ docker run -it runar-labs/runar:latest
 Now that you have Runar installed, you can:
 
 - Follow the [Quick Start Guide](quickstart) to create your first Runar application
-- Explore the [API Reference](../services/api) to learn about available functionality
-- Check out the  for a complete implementation
+- Explore the [Service Macros](../services/macros) to learn about available functionality
+- Check out the [Example Service](../services/example-service) to see a complete working example

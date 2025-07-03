@@ -30,8 +30,7 @@ The following diagram illustrates the high-level architecture of a Runar node:
 
 ```mermaid
 graph TD
-    Client[Client Applications] --> Gateway
-    Gateway[Gateway Service] --> Router
+    Client[Client Applications] --> Router
     Router[Action Router] --> S1[Service 1]
     Router --> S2[Service 2]
     Router --> S3[Service 3]
@@ -52,11 +51,12 @@ use runar_macros::{action, service, subscribe};
 use runar_node::services::{RequestContext, EventContext};
 use runar_common::types::ArcValue; // Assuming ArcValue might be used
 
-#[service(name = "example_service", path = "example")] // Added path as it's common
+#[service(name = "example_service", path = "example")]
 struct ExampleService {
     // Service state can be initialized in new()
 }
 
+#[service_impl]
 impl ExampleService {
     // Constructor following the pattern
     pub fn new() -> Self {
@@ -64,7 +64,7 @@ impl ExampleService {
         Self { }
     }
 
-    #[action(path = "perform_task")] // path attribute is often used
+    #[action(name = "perform_task")]
     async fn perform_task(&self, ctx: &RequestContext, input: String) -> Result<String> {
         // Handler implementation
         // Example: Log input and return a response
@@ -72,7 +72,7 @@ impl ExampleService {
         Ok(format!("Task completed with input: {}", input))
     }
     
-    #[subscribe(path = "event/type")] // path attribute is often used
+    #[subscribe(topic = "event/type")]
     async fn handle_event(&self, ctx: &EventContext, data: Option<ArcValue>) -> Result<()> {
         // Event handler implementation
         // Example: Log event data

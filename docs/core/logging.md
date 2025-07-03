@@ -121,7 +121,28 @@ IDs are automatically truncated for readability while maintaining full searchabi
 ## Logging Flow
 
 ```mermaid
-@include "../assets/images/logging-flow.txt"
+graph TD
+    A["Logging Macro Call"] --> B{"Async Context?"}
+    B -->|Yes| C["Async Logger"]
+    B -->|No| D["Sync Logger"]
+    C --> E["Extract Context Metadata"]
+    D --> E
+    E --> F["Add Custom Fields"]
+    F --> G["Format Log Message"]
+    G --> H["Apply ID Truncation"]
+    H --> I["Write Log Entry"]
+    
+    subgraph "Logging Pipeline"
+        E
+        F
+        G
+        H
+    end
+    
+    style A fill:#bbf,stroke:#333,stroke-width:2px
+    style E fill:#9f9,stroke:#333,stroke-width:2px
+    style H fill:#9f9,stroke:#333,stroke-width:2px
+    style I fill:#f9f,stroke:#333,stroke-width:2px
 ```
 
 The diagram above illustrates how the logging system works:

@@ -45,7 +45,7 @@ Let's create a simple math service with encryption capabilities. Replace the con
 ```rust
 use anyhow::Result;
 use runar_common::{hmap, types::ArcValue};
-use runar_macros::{action, publish, service, subscribe};
+use runar_macros::{action, publish, service, service_impl, subscribe};
 use runar_node::{
     services::{EventContext, RequestContext},
     Node, NodeConfig,
@@ -54,17 +54,18 @@ use std::sync::{Arc, Mutex};
 
 // Define a simple math service
 #[derive(Clone, Default)]
-pub struct MathService;
-
 #[service(
     name = "Math Service",
     path = "math",
     description = "Simple arithmetic API with event publishing",
     version = "1.0.0"
 )]
+pub struct MathService;
+
+#[service_impl]
 impl MathService {
     /// Add two numbers and publish the total to `math/added`.
-    #[publish(path = "added")]
+    #[publish(topic = "added")]
     #[action]
     async fn add(&self, a: f64, b: f64, ctx: &RequestContext) -> Result<f64> {
         ctx.debug(format!("Adding {a} + {b}"));
@@ -103,6 +104,12 @@ impl MathService {
 
 // Define a statistics service that listens to math events
 #[derive(Clone)]
+#[service(
+    name = "Stats Service",
+    path = "stats",
+    description = "Statistics tracking service",
+    version = "1.0.0"
+)]
 pub struct StatsService {
     values: Arc<Mutex<Vec<f64>>>,
 }
@@ -115,12 +122,7 @@ impl Default for StatsService {
     }
 }
 
-#[service(
-    name = "Stats Service",
-    path = "stats",
-    description = "Statistics tracking service",
-    version = "1.0.0"
-)]
+#[service_impl]
 impl StatsService {
     /// Record a value manually
     #[action]
@@ -159,7 +161,7 @@ impl StatsService {
     }
 
     /// React to math/added events automatically
-    #[subscribe(path = "math/added")]
+    #[subscribe(topic = "math/added")]
     async fn on_math_added(&self, total: f64, ctx: &EventContext) -> Result<()> {
         ctx.debug(format!("Received math/added event: {total}"));
         
@@ -345,7 +347,7 @@ You've created a simple Runar service! Here are some next steps to explore:
 ### 2. Explore Advanced Features
 - Set up [P2P Communication](../core/p2p)
 - Implement [Service Discovery](../core/discovery)
-- Add [Caching](../features/caching)
+
 
 ### 3. Build Real Applications
 - Create a 
@@ -364,7 +366,6 @@ To extend this service, you can:
 3. **Add Authentication**: Implement user authentication and authorization
 4. **Add Encryption**: Encrypt sensitive data using Runar's encryption system
 5. **Add Network Support**: Enable P2P communication between nodes
-6. **Add Web Interface**: Expose services through the HTTP gateway
 
 ## Troubleshooting
 
@@ -378,7 +379,7 @@ To extend this service, you can:
 ### Getting Help
 
 - Check the [Architecture Documentation](../core/architecture)
-- Review the [API Reference](../services/api)
+- Review the [Service Macros](../services/macros)
 - Look at the 
 - Join the community discussions
 
