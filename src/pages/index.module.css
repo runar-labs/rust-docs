@@ -1,8 +1,8 @@
 .heroBanner {
   padding: 6rem 0;
   text-align: center;
-  /* Gradient background to revive visual interest */
-  background: linear-gradient(135deg, #2c3e50 0%, #4f83cc 50%, #2980b9 100%);
+  /* Purposeful dark purple/indigo gradient that complements blue buttons */
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #533483 75%, #7209b7 100%);
 }
 
 .buttons {
