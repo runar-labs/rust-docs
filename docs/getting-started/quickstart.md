@@ -183,7 +183,7 @@ async fn main() -> Result<()> {
     println!("🚀 Starting Runar Hello World Application");
     
     // Create a minimal Node configuration
-    let config = NodeConfig::new_with_generated_id("hello-world-network");
+    let config = NodeConfig::new_test_config("test-node", "hello-world-network");
     let mut node = Node::new(config).await?;
 
     // Register services
