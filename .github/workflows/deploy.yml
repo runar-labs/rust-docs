@@ -16,35 +16,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: rust-docs/package-lock.json
 
       - name: Install Dependencies
         run: |
           cd rust-docs
-          bun install
-
-      - name: Copy Latest Content
-        run: |
-          cd rust-docs/website-docusaurus
-          cp -r ../markdown/getting-started/* docs/getting-started/
-          cp -r ../markdown/core/* docs/core/
-          cp -r ../markdown/features/* docs/features/
-          cp -r ../markdown/services/* docs/services/
-          cp -r ../markdown/development/* docs/development/
-          cp -r ../markdown/assets static/ -r
+          npm ci
 
       - name: Build Documentation
         run: |
           cd rust-docs
-          bun run build
+          npm run build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./rust-docs/build
+          publish_dir: ./build
           publish_branch: gh-pages
           commit_message: ${{ github.event.head_commit.message }} 
