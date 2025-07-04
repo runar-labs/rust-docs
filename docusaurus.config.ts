@@ -39,6 +39,7 @@ const config: Config = {
           // Remove this to remove the "edit this page" links.
           editUrl:
             'https://github.com/runar-labs/runar-rust/tree/main/rust-docs/markdown/',
+
         },
         blog: {
           showReadingTime: true,
@@ -55,6 +56,8 @@ const config: Config = {
   ],
 
   themes: ['@docusaurus/theme-mermaid'],
+  
+
 
   themeConfig: {
     // Replace with your project's social card

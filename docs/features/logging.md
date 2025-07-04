@@ -1,147 +1,289 @@
-# Logging Framework Usage Guidelines
+# Logging
 
+Runar provides a comprehensive logging system built on top of the `tracing` crate, offering structured logging with context-aware components and flexible configuration.
 
-## Table of Contents
-
-- [Introduction](#introduction)
 ## Overview
 
-This document outlines the standard approach for logging within the Runar codebase, including both application code and test code. Instead of using `println!()` statements, all logging should use the structured logging framework provided by the project, which allows for consistent formatting, level-based filtering, and component-specific logging.
+The logging system is designed around the `Logger` struct and `LoggingContext` trait, providing:
 
-## Core Principles
+- **Structured logging** with automatic context propagation
+- **Component-based logging** for different parts of the system
+- **Configurable log levels** and output formats
+- **Context-aware logging** in services and handlers
 
-1. Use the logging framework instead of `println!()` for all diagnostic output
-2. Always specify the appropriate component when logging
-3. Choose the appropriate log level for the message
-4. Remember to `.await` all logging calls, as they are async functions
+## Core Components
 
-## Log Levels
+### Logger
 
-- **TRACE**: Very detailed information, typically only useful when diagnosing specific issues
-- **DEBUG**: Detailed information on the flow through the system
-- **INFO**: Notable events but not issues (service start/stop, connections established)
-- **WARN**: Potentially harmful situations that might still allow the application to continue
-- **ERROR**: Error events that might still allow the application to continue running
-
-## Components
-
-The `Component` enum identifies different parts of the system:
+The main logging interface that provides methods for different log levels:
 
 ```rust
-pub enum Component {
-    Node,
-    Service,
-    P2P,
-    Registry,
-    Test,
-    ServiceRegistry,
-    IPC,
+use runar_common::logging::Logger;
+
+let logger = Logger::new("my-component");
+
+logger.info("Application started");
+logger.debug("Processing request");
+logger.warn("Resource usage high");
+logger.error("Failed to connect to database");
+```
+
+### LoggingContext
+
+A trait that provides logging capabilities to contexts used throughout the system:
+
+```rust
+use runar_common::logging::LoggingContext;
+
+// RequestContext and LifecycleContext implement LoggingContext
+context.info("Processing request");
+context.debug("Request parameters: {:?}", params);
+context.warn("Deprecated API used");
+context.error("Validation failed: {}", error);
+```
+
+## Usage in Services
+
+Services use the logging context provided by the framework, not by creating their own logger instances.
+
+### Lifecycle Methods
+
+In service lifecycle methods (`init`, `start`, `stop`), use the `LifecycleContext`:
+
+```rust
+use runar_node::services::{AbstractService, LifecycleContext};
+use anyhow::Result;
+
+impl AbstractService for MyService {
+    async fn init(&self, context: LifecycleContext) -> Result<()> {
+        context.info("Initializing MyService");
+        context.debug(format!("Service path: {}", self.path()));
+        
+        // Register actions and subscriptions...
+        
+        context.info("MyService initialized successfully");
+        Ok(())
+    }
+
+    async fn start(&self, context: LifecycleContext) -> Result<()> {
+        context.info("Starting MyService");
+        // Start service operations...
+        context.info("MyService started successfully");
+        Ok(())
+    }
+
+    async fn stop(&self, context: LifecycleContext) -> Result<()> {
+        context.info("Stopping MyService");
+        // Cleanup operations...
+        context.info("MyService stopped");
+        Ok(())
+    }
 }
 ```
 
-Always choose the most specific component applicable for your log message.
+### Request Handlers
 
-## Logging Functions
-
-The following async functions are available for logging:
+In request handlers, use the `RequestContext`:
 
 ```rust
-pub async fn trace_log(component: Component, message: &str)
-pub async fn debug_log(component: Component, message: &str)
-pub async fn info_log(component: Component, message: &str)
-pub async fn warn_log(component: Component, message: &str)
-pub async fn error_log(component: Component, message: &str)
+async fn handle_operation(
+    &self,
+    params: Option<ArcValue>,
+    context: RequestContext,
+) -> Result<ArcValue> {
+    context.info("Handling operation request");
+    
+    // Extract and validate parameters
+    let data = params.unwrap_or_else(ArcValue::null);
+    context.debug(format!("Request parameters: {:?}", data));
+    
+    // Process the request
+    match self.process_operation(data, &context).await {
+        Ok(result) => {
+            context.info("Operation completed successfully");
+            Ok(ArcValue::new_primitive(result))
+        }
+        Err(e) => {
+            context.error(format!("Operation failed: {}", e));
+            Err(anyhow!("Operation failed: {}", e))
+        }
+    }
+}
 ```
 
-There's also a special version for debug logging that includes formatted debug output of a value:
+### Internal Service Methods
+
+For internal service methods that receive a context parameter:
 
 ```rust
-pub fn debug_log_with_data<T: std::fmt::Debug>(component: Component, message: &str, data: &T)
+async fn process_operation(
+    &self,
+    data: ArcValue,
+    ctx: &RequestContext,
+) -> Result<f64> {
+    ctx.debug("Processing operation");
+    
+    // Validate input
+    if data.is_null() {
+        ctx.error("Invalid input: null data");
+        return Err(anyhow!("Invalid input"));
+    }
+    
+    // Process the operation
+    let result = self.calculate(data)?;
+    ctx.debug(format!("Operation result: {}", result));
+    
+    Ok(result)
+}
 ```
 
-## Important: Awaiting Log Calls
+### Event Handlers
 
-Because the logging functions are async, they must be awaited or the log messages may not be processed. 
+In event subscription handlers:
 
 ```rust
-// Correct usage:
-info_log(Component::Test, "Starting test").await;
-
-// Incorrect (warning will be generated):
-info_log(Component::Test, "Starting test"); // Missing await!
+context
+    .subscribe(
+        "my/event",
+        Box::new(move |event_ctx, payload| {
+            Box::pin(async move {
+                event_ctx.info("Received my/event");
+                event_ctx.debug(format!("Event payload: {:?}", payload));
+                
+                // Process the event...
+                
+                event_ctx.info("Event processed successfully");
+                Ok(())
+            })
+        }),
+    )
+    .await?;
 ```
 
-The compiler will warn about "unused implementer of `futures::Future` that must be used" when the await is missing.
+## Configuration
 
-## Usage in Tests
+### Basic Setup
 
-For tests, use the `Component::Test` component with appropriate log levels. Before running tests that use logging, call `configure_test_logging()` to set up logging with the right levels for tests:
+Initialize logging with default configuration:
+
+```rust
+use runar_common::logging::init_logging;
+
+fn main() {
+    init_logging().expect("Failed to initialize logging");
+    // ... rest of application
+}
+```
+
+### Custom Configuration
+
+Configure logging with specific settings:
+
+```rust
+use runar_common::logging::{init_logging_with_config, LoggingConfig};
+
+fn main() {
+    let config = LoggingConfig {
+        level: "debug".to_string(),
+        format: "json".to_string(),
+        output: "stdout".to_string(),
+    };
+    
+    init_logging_with_config(config).expect("Failed to initialize logging");
+    // ... rest of application
+}
+```
+
+## Best Practices
+
+### 1. Use Context for Service Logging
+
+Always use the provided context for logging in services:
+
+```rust
+// ✅ Correct - use context
+context.info("Processing request");
+context.error(format!("Failed to process: {}", error));
+
+// ❌ Incorrect - don't create your own logger in services
+let logger = Logger::new("service");
+logger.info("Processing request");
+```
+
+### 2. Include Relevant Context
+
+Add useful information to log messages:
+
+```rust
+context.info(format!("User {} logged in from {}", user_id, ip_address));
+context.debug(format!("Request parameters: {:?}", params));
+context.error(format!("Database query failed: {} (query: {})", error, sql));
+```
+
+### 3. Use Appropriate Log Levels
+
+- **Error**: For errors that need immediate attention
+- **Warn**: For potentially harmful situations
+- **Info**: For general application flow
+- **Debug**: For detailed diagnostic information
+
+### 4. Avoid Sensitive Data
+
+Never log sensitive information like passwords, tokens, or personal data:
+
+```rust
+// ✅ Correct
+context.info("User authentication successful");
+
+// ❌ Incorrect
+context.info(format!("User {} logged in with password {}", user, password));
+```
+
+### 5. Structured Logging
+
+Use structured data when available:
+
+```rust
+context.info(format!("Processing order {} for customer {}", order_id, customer_id));
+context.debug(format!("Order details: {:?}", order));
+```
+
+## Integration with Tracing
+
+The logging system is built on top of `tracing`, so you can use tracing macros and spans:
+
+```rust
+use tracing::{info, debug, error, instrument};
+
+#[instrument(skip(context))]
+async fn handle_request(
+    &self,
+    params: Option<ArcValue>,
+    context: RequestContext,
+) -> Result<ArcValue> {
+    info!("Handling request");
+    debug!("Request parameters: {:?}", params);
+    
+    // ... implementation
+    
+    info!("Request completed successfully");
+    Ok(result)
+}
+```
+
+## Testing
+
+When testing services, you can create mock contexts or use the actual logging system:
 
 ```rust
 #[tokio::test]
-async fn test_something() -> Result<()> {
-    // Set up logging for tests
-    configure_test_logging();
+async fn test_service_operation() {
+    // Initialize logging for tests
+    init_logging().expect("Failed to initialize logging");
     
-    // Use logging instead of println
-    info_log(Component::Test, "Starting test").await;
-    
-    // Test logic...
-    
-    // Log test completion
-    info_log(Component::Test, "Test completed successfully").await;
-    Ok(())
+    let service = MyService::new("test-service", "/test");
+    // ... test implementation
 }
 ```
 
-## Controlling Log Levels
-
-Log levels can be controlled using the `RUST_LOG` environment variable. For example:
-
-```bash
-RUST_LOG=debug cargo test
-RUST_LOG=info,runar_node::p2p=debug cargo run
-```
-
-## Examples
-
-### Instead of println in tests:
-
-```rust
-// Bad:
-println!("Starting test service");
-
-// Good:
-info_log(Component::Test, "Starting test service").await;
-```
-
-### For debugging in tests:
-
-```rust
-// Bad:
-println!("Request details: {:?}", request);
-
-// Good:
-debug_log_with_data(Component::Test, "Request details", &request);
-```
-
-### For error conditions:
-
-```rust
-// Bad:
-println!("Failed to connect: {}", error);
-
-// Good:
-error_log(Component::Test, &format!("Failed to connect: {}", error)).await;
-```
-
-## Guidelines for Converting println to Logging
-
-1. Identify the appropriate component for the log message
-2. Choose the appropriate log level (info, debug, error, etc.)
-3. Format string messages inside the log call
-4. Remember to await the logging call
-
-## Implementation Notes
-
-The logging implementation in `util::logging.rs` is built on top of the standard Rust `log` crate and integrates with the node ID system to provide context for logs. This allows logs to be filtered and aggregated effectively in multi-node environments. 
+This logging system provides a consistent, context-aware approach to logging throughout the Runar framework, ensuring that all log messages include relevant context and follow best practices for production applications. 

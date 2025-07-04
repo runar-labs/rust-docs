@@ -1,6 +1,10 @@
 # Runar Node System Diagrams
 
+import Mermaid from '@site/src/components/Mermaid';
+
 This document provides a comprehensive collection of system diagrams illustrating the various flows and interactions within the Runar node system.
+
+
 
 ## Table of Contents
 1. [Sequence Diagrams](#sequence-diagrams)
@@ -27,23 +31,17 @@ This document provides a comprehensive collection of system diagrams illustratin
 ### Local Service Request
 Shows the flow of a request to a local service.
 
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant SR as ServiceRegistry
-    participant S as Service
-
-    C->>SR: Service Request
-    SR-->>C: Return Service Reference
-    C->>S: Direct Request
-    Note over S: Process Request
-    S-->>C: Return Response
-```
+<Mermaid chart={`
+flowchart TD
+    A[Client] --> B[Service Registry]
+    B --> C[Service]
+    C --> D[Response]
+`} />
 
 ### Remote Service Request
 Illustrates how requests are handled when the target service is on a remote peer.
 
-```mermaid
+<Mermaid chart={`
 sequenceDiagram
     participant C as Client
     participant SR as ServiceRegistry
@@ -59,12 +57,12 @@ sequenceDiagram
     Note over RS: Process Request
     RS-->>P2P: Return Response
     P2P-->>C: Forward Response
-```
+`} />
 
 ### P2P Discovery and Connection
 Shows how peers discover and establish connections with each other.
 
-```mermaid
+<Mermaid chart={`
 sequenceDiagram
     participant P1 as Peer1
     participant M as Multicast
@@ -82,12 +80,12 @@ sequenceDiagram
     P2->>P1: Exchange Service Directory
     P1->>DHT: Announce Services
     P2->>DHT: Announce Services
-```
+`} />
 
 ### Event Publication
 Demonstrates how events are published and distributed across the network.
 
-```mermaid
+<Mermaid chart={`
 sequenceDiagram
     participant S as Service
     participant SR as ServiceRegistry
@@ -105,12 +103,12 @@ sequenceDiagram
     P2P->>RP2: Forward Event
     RP1->>LS1: Notify Local Subscribers
     RP2->>LS2: Notify Local Subscribers
-```
+`} />
 
 ### Service Subscription Setup
 Shows how services set up their subscriptions during initialization.
 
-```mermaid
+<Mermaid chart={`
 sequenceDiagram
     participant S as Service
     participant SR as ServiceRegistry
@@ -126,12 +124,12 @@ sequenceDiagram
     RP-->>P2P: Acknowledge
     P2P-->>SR: Update Remote Subscription Table
     Note over SR: Ready for Event Distribution
-```
+`} />
 
 ### DHT Operations
 Illustrates how DHT operations are processed.
 
-```mermaid
+<Mermaid chart={`
 sequenceDiagram
     participant S as Service
     participant P2P as P2PTransport
@@ -152,12 +150,12 @@ sequenceDiagram
     RP-->>DHT: Return Value
     DHT-->>P2P: Return Result
     P2P-->>S: Return Value
-```
+`} />
 
 ### Service Lifecycle
 Shows the different states a service can be in.
 
-```mermaid
+<Mermaid chart={`
 stateDiagram-v2
     [*] --> Created
     Created --> Initialized: init()
@@ -173,12 +171,12 @@ stateDiagram-v2
     note right of Running: Processing requests
     note right of Paused: Temporary suspension
     note right of Stopped: Cleanup complete
-```
+`} />
 
 ### Network Authentication
 Shows the authentication process between peers.
 
-```mermaid
+<Mermaid chart={`
 sequenceDiagram
     participant P1 as Peer1
     participant P2 as Peer2
@@ -195,14 +193,14 @@ sequenceDiagram
     else Token Invalid
         P2-->>P1: Connection Rejected
     end
-```
+`} />
 
 ## Flow Diagrams
 
 ### Request Processing
 Shows how requests are processed through the system.
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     A[Client Request] --> B{Local Service?}
     B -->|Yes| C[Get Service Reference]
@@ -222,12 +220,12 @@ flowchart TD
     
     K --> L[Record Metrics]
     L --> M[Send Response]
-```
+`} />
 
 ### Service Initialization
 Illustrates the initialization process of a service.
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     A[Service Creation] --> B[Load Configuration]
     B --> C[Initialize State]
@@ -248,12 +246,12 @@ flowchart TD
     K -->|Yes| L[Mark as Initialized]
     K -->|No| M[Cleanup]
     M --> N[Return Error]
-```
+`} />
 
 ### P2P Message Routing
 Shows how messages are routed in the P2P network.
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     A[Incoming Message] --> B{Message Type?}
     
@@ -273,12 +271,12 @@ flowchart TD
     L -->|Get| M[Find Value]
     L -->|Put| N[Store Value]
     L -->|Find Node| O[Return Closest]
-```
+`} />
 
 ### Cache Operations
 Illustrates the flow of cache operations.
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     A[Cache Operation] --> B{Operation Type?}
     
@@ -299,12 +297,12 @@ flowchart TD
     K -->|DHT| N[Store DHT]
     
     N --> O[Setup Replication]
-```
+`} />
 
 ### Event Distribution
 Shows how events are distributed through the system.
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     A[Event Published] --> B[Check Topic]
     
@@ -324,12 +322,12 @@ flowchart TD
     J --> M[Record Metrics]
     K --> M
     L --> M
-```
+`} />
 
 ### Discovery Process
 Illustrates the peer discovery process.
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     A[Start Discovery] --> B[Load Networks]
     
@@ -348,12 +346,12 @@ flowchart TD
     
     I --> K[Update Routing]
     K --> L[Start Connection]
-```
+`} />
 
 ### Security Flow
 Shows the security validation process.
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     A[Security Check] --> B{Check Type?}
     
@@ -372,12 +370,12 @@ flowchart TD
     E --> K{Has Permission?}
     K -->|Yes| L[Allow]
     K -->|No| H
-```
+`} />
 
 ### Service Communication
 Illustrates different types of service communication.
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     A[Communication Request] --> B{Type?}
     
@@ -400,7 +398,7 @@ flowchart TD
     K --> O[Remote Process]
     L --> P[Deliver Event]
     M --> Q[Broadcast Message]
-``` 
+`} /> 
 
 ## Examples
 

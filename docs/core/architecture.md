@@ -1,3 +1,5 @@
+import Mermaid from '@site/src/components/Mermaid';
+
 # Runar Node System Architecture
 
 This document describes the high-level architecture of the Runar node system, including core components, data flow patterns, design principles, and implementation guidelines.
@@ -227,7 +229,7 @@ The Runar node system follows two primary data flow patterns:
 
 The following diagram illustrates the lifecycle of a service in the Runar node system:
 
-```mermaid
+<Mermaid chart={`
 sequenceDiagram
     participant N as Node
     participant SR as ServiceRegistry
@@ -249,13 +251,13 @@ sequenceDiagram
     S->>ES: Unregister Subscriptions
     S->>SR: Unregister Service
     Note over S: State: Stopped
-```
+`} />
 
 ### Service Initialization
 
 The following diagram illustrates the service initialization flow:
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     A[Create Service] --> B[Call init Method]
     B --> C[Setup Resources]
@@ -265,7 +267,7 @@ flowchart TD
     F --> G[Register with Service Registry]
     G --> H[Set State to Running]
     H --> I[Begin Processing Requests]
-```
+`} />
 
 **Subscription Setup:**
 - Service subscriptions should be established during the initialization phase (`init` method)
@@ -322,25 +324,65 @@ The P2P layer in Runar nodes implements the following features:
 
 ### Network Configuration
 
-P2P functionality in Runar nodes is configured through the Node configuration:
+P2P functionality in Runar nodes is configured through the Node configuration. The current architecture uses a modern configuration system with proper separation of concerns:
 
 ```rust
-// Example P2P configuration
-let p2p_config = TransportConfig {
-    network_id: "network_id".to_string(),
-    state_path: "state_path".to_string(),
-    bootstrap_nodes: Some(vec!["127.0.0.1:50601".to_string()]),
-    listen_addr: Some("127.0.0.1:50602".to_string()),
+use runar_node::{
+    node::{Node, NodeConfig},
+    network::network_config::{NetworkConfig, QuicTransportOptions},
+    network::transport::TransportOptions,
+};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+// Example 1: Basic node without networking
+let mut node = Node::new(NodeConfig::new_test_config("my_node", "my_network")).await?;
+
+// Example 2: Node with QUIC networking and multicast discovery
+let quic_options = QuicTransportOptions::new();
+let network_config = NetworkConfig::with_quic(quic_options)
+    .with_multicast_discovery();
+
+let mut node = Node::new(
+    NodeConfig::new_test_config("my_node", "my_network")
+        .with_network_config(network_config)
+).await?;
+
+// Example 3: Advanced configuration with custom transport options
+let transport_options = TransportOptions {
+    bind_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080),
+    timeout: Some(std::time::Duration::from_secs(30)),
+    max_message_size: Some(1024 * 1024), // 1MB
 };
 
-// Create and initialize node with P2P support
-let mut node = Node::new(NodeConfig {
-    node_id: "my_node".to_string(),
-    data_dir: "./data".to_string(),
-    db_path: "./data/db".to_string(),
-    p2p_config: Some(p2p_config),
-}).await?;
+let quic_options = QuicTransportOptions::new();
+let network_config = NetworkConfig::with_quic(quic_options)
+    .with_multicast_discovery();
+
+// Customize the network config
+let mut network_config = network_config;
+network_config.transport_options = transport_options;
+network_config.connection_timeout_ms = 60000; // 60 seconds
+network_config.request_timeout_ms = 30000;    // 30 seconds
+
+let mut node = Node::new(
+    NodeConfig::new_test_config("my_node", "my_network")
+        .with_network_config(network_config)
+        .with_request_timeout(30000) // 30 seconds
+).await?;
 ```
+
+**Key Configuration Components:**
+
+- **NodeConfig**: Main node configuration with node ID, network ID, and optional networking
+- **NetworkConfig**: Network-specific configuration including transport and discovery
+- **QuicTransportOptions**: QUIC-specific transport configuration
+- **TransportOptions**: Base transport configuration (bind address, timeouts, etc.)
+- **DiscoveryProviderConfig**: Discovery mechanism configuration (multicast, static, etc.)
+
+**Production vs Testing:**
+
+- Use `NodeConfig::new()` for production (requires key manager state)
+- Use `NodeConfig::new_test_config()` for testing (auto-generates test credentials)
 
 ## Security Considerations
 
@@ -515,10 +557,7 @@ async fn main() -> Result<()> {
         
     let mut node = Node::new(config).await?;
     
-    // 2. Initialize node
-    node.init().await?;
-    
-    // 3. Create services
+    // 2. Create services
     let task_service = TaskService::new();
     let analytics_service = AnalyticsService::new();
     
@@ -572,13 +611,13 @@ This example demonstrates all the critical architectural patterns:
 3. **Request-based API**: Using `node.request()` for all service interactions
 4. **Event-driven Communication**: Services communicate via events for loose coupling
 5. **Clean Parameter Extraction**: Using specialized vmap macros (`vmap_str!`, `vmap_i32!`, etc.) for safe extraction with defaults
-6. **Proper Lifecycle Management**: Following create → init → start → use → stop
+6. **Proper Lifecycle Management**: Following create → start → use → stop
 
 ### Service Communication Flow
 
 The sequence diagram below illustrates the complete communication flow in our example:
 
-```mermaid
+<Mermaid chart={`
 sequenceDiagram
     participant Client
     participant Node
@@ -615,7 +654,7 @@ sequenceDiagram
     Client->>Node: Stop Node
     Node->>TaskService: Stop
     Node->>AnalyticsService: Stop
-```
+`} />
 
 This comprehensive example demonstrates how all the architectural elements work together in a cohesive application, following the recommended patterns and guidelines.
 

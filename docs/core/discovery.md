@@ -1,3 +1,5 @@
+import Mermaid from '@site/src/components/Mermaid';
+
 # Discovery Mechanism Specification
 
 This specification defines the discovery mechanism for the P2P network, allowing peers to locate each other on the same local network using UDP multicast. It includes secure validation of discovery messages to ensure only authorized peers are considered for connection.
@@ -20,7 +22,7 @@ This specification defines the discovery mechanism for the P2P network, allowing
 
 The following diagram illustrates the P2P discovery and connection process:
 
-```mermaid
+<Mermaid chart={`
 sequenceDiagram
     participant P1 as Peer1
     participant M as Multicast Network
@@ -36,11 +38,11 @@ sequenceDiagram
     P2->>D: Lookup Remote Peer
     D-->>P2: Return Peer Connection Info
     P2->>P1: Establish Connection via DHT
-```
+`} />
 
 The following flow diagram illustrates the complete discovery process:
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     A[Node Starts] --> B[Initialize Discovery]
     B --> C[Join Multicast Group]
@@ -60,7 +62,7 @@ flowchart TD
     P[DHT Discovery] --> Q[Register in DHT]
     Q --> R[Lookup Remote Peers]
     R --> S[Connect to Remote Peers]
-```
+`} />
 
 ## Discovery Method
 

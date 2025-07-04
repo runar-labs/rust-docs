@@ -1,3 +1,5 @@
+import Mermaid from '@site/src/components/Mermaid';
+
 # Runar Overview
 
 ## Introduction
@@ -28,7 +30,7 @@ Runar consists of several core components:
 
 The following diagram illustrates the high-level architecture of a Runar node:
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     Client[Client Applications] --> Router
     Router[Action Router] --> S1[Service 1]
@@ -39,7 +41,7 @@ flowchart TD
     S3 <--> EventBus
     EventBus <--> P2P[P2P Layer]
     P2P <--> Network[Network]
-```
+`} />
 
 ## Service Model
 

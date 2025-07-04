@@ -295,15 +295,8 @@ use tokio;
 #[tokio::main]
 async fn main() -> Result<()> {
     // Create and configure the node
-    let config = NodeConfig::new(
-        "my_node",
-        "./data",
-        "./data/db",
-    );
+    let config = NodeConfig::new_test_config("my_node", "my_network");
     let mut node = Node::new(config).await?;
-    
-    // Initialize the node
-    node.init().await?;
     
     // Create and add the services
     let data_service = DataService::new();

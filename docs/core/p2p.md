@@ -1,3 +1,5 @@
+import Mermaid from '@site/src/components/Mermaid';
+
 # P2P Transport Layer Specification
 
 This specification defines a peer-to-peer (P2P) transport layer implemented in Rust, designed as an event bus using QUIC as the transport protocol. It supports network-specific participation, decentralized storage via a Kademlia Distributed Hash Table (DHT), and secure access control through cryptographic tokens.
@@ -53,7 +55,7 @@ The P2P transport layer provides:
 
 The following diagram illustrates the P2P message routing flow:
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     A[Message Created] --> B[Serialize Message]
     B --> C{Local or Remote?}
@@ -68,7 +70,7 @@ flowchart TD
     K --> L[Process Message]
     L --> M[Generate Response]
     M --> N[Return via Same Route]
-```
+`} />
 
 ### DHT System
 
@@ -142,7 +144,7 @@ async fn connect_to_peer(
 
 The following diagram illustrates the DHT operations in the P2P network:
 
-```mermaid
+<Mermaid chart={`
 sequenceDiagram
     participant N1 as Node1
     participant K1 as Kademlia (Node1)
@@ -162,7 +164,7 @@ sequenceDiagram
     N2-->>K2: Return Value
     K2-->>K3: Forward Value
     K3-->>N3: Return Value
-```
+`} />
 
 ```rust
 /// Store a value in the DHT
@@ -192,7 +194,7 @@ async fn bootstrap(
 
 The following diagram illustrates the network authentication process:
 
-```mermaid
+<Mermaid chart={`
 sequenceDiagram
     participant C as Client Node
     participant A as Auth Service
@@ -209,11 +211,11 @@ sequenceDiagram
     Note over T: Check Signature
     Note over T: Verify Permissions
     T-->>C: Connection Established/Rejected
-```
+`} />
 
 The following flow diagram illustrates the security flow in the P2P network:
 
-```mermaid
+<Mermaid chart={`
 flowchart TD
     A[Connection Request] --> B[TLS Handshake]
     B --> C[Verify Certificate]
@@ -235,7 +237,7 @@ flowchart TD
     R --> S{Integrity Check?}
     S -->|Fail| T[Discard Message]
     S -->|Pass| U[Process Message]
-```
+`} />
 
 ### Access Control
 
