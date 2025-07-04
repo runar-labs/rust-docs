@@ -3,12 +3,8 @@ name: Deploy Documentation
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'rust-docs/**'
   pull_request:
     branches: [ main ]
-    paths:
-      - 'rust-docs/**'
 
 jobs:
   build-and-deploy:
