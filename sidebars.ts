@@ -9,6 +9,7 @@ const sidebars: SidebarsConfig = {
         'getting-started/quickstart',
         'getting-started/overview',
         'getting-started/installation',
+        'getting-started/mermaid-test',
       ],
     },
     {

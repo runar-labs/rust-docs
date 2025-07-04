@@ -29,7 +29,7 @@ Runar consists of several core components:
 The following diagram illustrates the high-level architecture of a Runar node:
 
 ```mermaid
-graph TD
+flowchart TD
     Client[Client Applications] --> Router
     Router[Action Router] --> S1[Service 1]
     Router --> S2[Service 2]
