@@ -1,0 +1,136 @@
+.banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  min-height: 60px;
+}
+
+.banner.light {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.banner.dark {
+  background: linear-gradient(135deg, #4c63d2 0%, #6b46c1 100%);
+}
+
+.bannerContent {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.bannerHeader {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 0;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 4px;
+  margin: 0.25rem 0;
+}
+
+.bannerHeader:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.bannerIcon {
+  margin-right: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.bannerTitle {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.bannerToggle {
+  font-size: 1.2rem;
+  font-weight: bold;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  transition: background-color 0.2s ease;
+}
+
+.bannerToggle:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.bannerDetails {
+  padding: 1rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  margin-top: 0.5rem;
+  animation: slideDown 0.3s ease-out;
+}
+
+.bannerDetails p {
+  margin: 0.75rem 0;
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+.bannerDetails ul {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.bannerDetails li {
+  margin: 0.5rem 0;
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.bannerDetails a {
+  color: #ffd700;
+  text-decoration: underline;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.bannerDetails a:hover {
+  color: #ffed4e;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Adjust main content to account for banner */
+:global(.main-wrapper) {
+  padding-top: 60px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .bannerTitle {
+    font-size: 0.85rem;
+  }
+  
+  .bannerDetails {
+    padding: 0.75rem 0;
+  }
+  
+  .bannerDetails p,
+  .bannerDetails li {
+    font-size: 0.85rem;
+  }
+} 

@@ -57,8 +57,6 @@ const config: Config = {
 
   themes: ['@docusaurus/theme-mermaid'],
   
-
-
   themeConfig: {
     // Replace with your project's social card
     image: 'img/runar-social-card.jpg',
@@ -66,7 +64,7 @@ const config: Config = {
       title: 'Runar',
       logo: {
         alt: 'Runar Logo',
-        src: 'img/logo.svg',
+        src: 'img/runar-logo.jpg',
       },
       items: [
         {
@@ -80,6 +78,7 @@ const config: Config = {
           label: 'GitHub',
           position: 'right',
         },
+
       ],
     },
     footer: {

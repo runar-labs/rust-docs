@@ -248,29 +248,6 @@ context.info(format!("Processing order {} for customer {}", order_id, customer_i
 context.debug(format!("Order details: {:?}", order));
 ```
 
-## Integration with Tracing
-
-The logging system is built on top of `tracing`, so you can use tracing macros and spans:
-
-```rust
-use tracing::{info, debug, error, instrument};
-
-#[instrument(skip(context))]
-async fn handle_request(
-    &self,
-    params: Option<ArcValue>,
-    context: RequestContext,
-) -> Result<ArcValue> {
-    info!("Handling request");
-    debug!("Request parameters: {:?}", params);
-    
-    // ... implementation
-    
-    info!("Request completed successfully");
-    Ok(result)
-}
-```
-
 ## Testing
 
 When testing services, you can create mock contexts or use the actual logging system:

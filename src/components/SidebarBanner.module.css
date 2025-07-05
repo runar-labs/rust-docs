@@ -1,0 +1,128 @@
+.sidebarBanner {
+  margin: 1rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.sidebarBanner.light {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.sidebarBanner.dark {
+  background: linear-gradient(135deg, #4c63d2 0%, #6b46c1 100%);
+  color: white;
+}
+
+.sidebarBannerContent {
+  padding: 0;
+}
+
+.sidebarBannerHeader {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.sidebarBannerHeader:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebarBannerIcon {
+  margin-right: 0.5rem;
+  font-size: 1rem;
+}
+
+.sidebarBannerTitle {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.sidebarBannerToggle {
+  font-size: 1rem;
+  font-weight: bold;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  transition: background-color 0.2s ease;
+}
+
+.sidebarBannerToggle:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.sidebarBannerDetails {
+  padding: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  animation: slideDown 0.3s ease-out;
+}
+
+.sidebarBannerDetails p {
+  margin: 0.5rem 0;
+  line-height: 1.4;
+  font-size: 0.8rem;
+}
+
+.sidebarBannerLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.sidebarBannerLink {
+  color: #ffd700;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.sidebarBannerLink:hover {
+  color: #ffed4e;
+  background-color: rgba(255, 255, 255, 0.2);
+  text-decoration: none;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 996px) {
+  .sidebarBanner {
+    margin: 0.5rem 0;
+  }
+  
+  .sidebarBannerTitle {
+    font-size: 0.8rem;
+  }
+  
+  .sidebarBannerDetails p {
+    font-size: 0.75rem;
+  }
+  
+  .sidebarBannerLink {
+    font-size: 0.75rem;
+  }
+} 
