@@ -59,7 +59,7 @@ const config: Config = {
   
   themeConfig: {
     // Replace with your project's social card
-    image: 'img/runar-social-card.jpg',
+    image: 'https://pbs.twimg.com/profile_images/1939859796423057413/JjH9Jm5Q_400x400.jpg',
     navbar: {
       title: 'Runar',
       logo: {
