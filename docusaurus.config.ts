@@ -64,22 +64,27 @@ const config: Config = {
       title: 'Runar',
       logo: {
         alt: 'Runar Logo',
-        src: 'img/runar-logo.jpg',
+        src: 'https://pbs.twimg.com/profile_images/1939859796423057413/JjH9Jm5Q_400x400.jpg',
       },
-      items: [
-        {
-          type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
-          position: 'left',
-          label: 'Documentation',
-        },
-        {
-          href: 'https://github.com/runar-labs/runar-rust',
-          label: 'GitHub',
-          position: 'right',
-        },
-
-      ],
+              items: [
+          {
+            type: 'docSidebar',
+            sidebarId: 'tutorialSidebar',
+            position: 'left',
+            label: 'Documentation',
+          },
+          {
+            href: 'https://github.com/runar-labs/runar-rust',
+            label: 'GitHub',
+            position: 'right',
+          },
+          {
+            href: 'https://x.com/runar_team',
+            position: 'right',
+            className: 'x-logo-link',
+            'aria-label': 'Follow us on X.com',
+          },
+        ],
     },
     footer: {
       style: 'dark',

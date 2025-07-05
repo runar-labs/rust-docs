@@ -43,4 +43,60 @@
   margin-left: 1rem;
 }
 
+/* X.com logo styling */
+.x-logo-link {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem;
+  margin-right: 0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+  position: relative;
+}
 
+.x-logo-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.x-logo-link:hover::before {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 1200 1227' xmlns='http://www.w3.org/2000/svg' aria-hidden='true' role='none'%3E%3Cpath d='M714.163 519.284L1160.89 0H1055.03L667.137 450.887L357.328 0H0L468.492 681.821L0 1226.37H105.866L515.491 750.218L842.672 1226.37H1200L714.137 519.284H714.163ZM569.165 687.828L521.697 619.934L144.011 79.6944H306.615L611.412 515.685L658.88 583.579L1055.08 1150.3H892.476L569.165 687.854V687.828Z' fill='%2325c2a0'/%3E%3C/svg%3E");
+}
+
+.x-logo-link::before {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 1200 1227' xmlns='http://www.w3.org/2000/svg' aria-hidden='true' role='none'%3E%3Cpath d='M714.163 519.284L1160.89 0H1055.03L667.137 450.887L357.328 0H0L468.492 681.821L0 1226.37H105.866L515.491 750.218L842.672 1226.37H1200L714.137 519.284H714.163ZM569.165 687.828L521.697 619.934L144.011 79.6944H306.615L611.412 515.685L658.88 583.579L1055.08 1150.3H892.476L569.165 687.854V687.828Z' fill='currentColor'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  transition: background-image 0.2s ease;
+}
+
+.x-logo-link::after {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.7;
+}
+
+/* Remove blinking cursor from development banner text */
+[data-theme='light'] .banner,
+[data-theme='dark'] .banner {
+  caret-color: transparent;
+}
+
+/* Ensure banner text is not selectable and doesn't show cursor */
+.banner * {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}

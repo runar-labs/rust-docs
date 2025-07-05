@@ -54,8 +54,6 @@ export default function DevelopmentBanner(): JSX.Element {
             <strong> 🚧 We are in Active Development! Join to help us build the future of secure and decentralized applications. 🚧 </strong>
           </div>
           <div style={{
-            fontSize: '1.2rem',
-            fontWeight: 'bold',
             width: '24px',
             height: '24px',
             display: 'flex',
@@ -67,7 +65,18 @@ export default function DevelopmentBanner(): JSX.Element {
             pointerEvents: 'none',
             marginRight: '16px'
           }}>
-            {isExpanded ? '−' : '+'}
+            <svg 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="currentColor"
+              style={{
+                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease'
+              }}
+            >
+              <path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+            </svg>
           </div>
           <div 
             style={{
