@@ -145,8 +145,46 @@ message UserProfileSearchFieldsProto {
  2 - generate the Protobuf Schema 
 create a test that proves that it works
 
+2.5 - Anotate the gebneratd Proto structs with  the proper macro for protobufer to map each field to the sceham. so protobudfdfer works as expected in rust..
+
 3 - Generate a build.ts that auaomted the protofbuff parts. so the types and schema can be properly used.
 create a test that proves that it works
+the test should show the serialization using protobuffer structs and deserialization (NOT BINCODE)
 
 4 - change the seriaqlization from bincode to use the new components generated in the previous steps.
 create a test that proves that it works
+
+## Lazy `ArcValue` – dual-view requirements
+
+The serializer layer **MUST** support both of the following access patterns for the *same* on-wire byte buffer wrapped in an `ArcValue`:
+
+1. **Plain-Struct View (business-logic path)**
+   • Caller asks for the original Rust struct `T` (e.g. `UserProfile`).<br/>
+   • If the `ArcValue` already holds an in-memory instance of `T` the call return  `&T`. (NO CLONE)
+   • If the `ArcValue` is lazy:
+     1.   Deserialize bytes into `EncryptedT` using prost.
+     2.   Decrypt the label groups that the current context (keystore + label-resolver) can decrypt.
+     3.   Produce a new `T` with the accessible fields filled, others left default/empty.
+
+2. **Encrypted-Struct View (storage path)**
+   • Caller asks for `EncryptedT` (naming convention: `Encrypted<Original>`).<br/>
+   • If the `ArcValue` already holds an in-memory plaintext `T` **this is an error**: we cannot invent an encrypted form that never existed.
+   • If the `ArcValue` is lazy, simply deserialize the bytes into `EncryptedT` and return it **without decrypting anything**.
+
+### Header / type-name convention
+
+• The serialization header continues to store the **plaintext type name** (`T`). This keeps the common “give me a `T`” fast path simple.<br/>
+• When a caller requests `EncryptedT`, the registry derives the encrypted type name from the header by prefix rule (`Encrypted + last_segment(type_name)`) and attempts to deserialize accordingly.
+
+### Error matrix
+
+| ArcValue holds | Request type | Result |
+|---------------|-------------|--------|
+| in-memory **T** | **T** | success (clone) |
+| in-memory **T** | **EncryptedT** | ❌ error: cannot manufacture encrypted variant |
+| lazy bytes | **T** | success (deserialize→decrypt) |
+| lazy bytes | **EncryptedT** | success (deserialize only) |
+
+Unit and integration tests **MUST** cover all four cells above.
+
+These rules supersede earlier notes; refer back here if behaviour questions arise during implementation.
